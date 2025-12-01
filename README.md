@@ -31,7 +31,7 @@ python3 -m http.server 8000
 - `script.js` — playlist logic, playback, progress, UI wiring.
 - `js/i18n.js` — language loader for `lang/*.json`.
 - `lang/` — translations (zh-CN, en, ja).
-- `lang-icon.svg` — language icon; `tape-icon.png` — favicon.
+- `lang-icon.svg` — language icon; `favicon.png` — favicon.
 - `js/utils.js` — helpers for durations, ids, formatting.
 
 ### Notes
@@ -65,7 +65,7 @@ python3 -m http.server 8000
 - `script.js`：播放列表、播放与进度逻辑。
 - `js/i18n.js`：加载 `lang/*.json` 语言。
 - `lang/`：翻译文件（中/英/日）。
-- `lang-icon.svg`：语言图标；`tape-icon.png`：站点图标。
+- `lang-icon.svg`：语言图标；`favicon.png`：站点图标。
 - `js/utils.js`：时长、ID、格式化工具。
 
 ### 说明
@@ -98,7 +98,7 @@ python3 -m http.server 8000
 - `script.js`：プレイリスト、再生、進捗ロジック。
 - `js/i18n.js`：`lang/*.json` の読み込み。
 - `lang/`：翻訳ファイル（中/英/日）。
-- `lang-icon.svg`：言語アイコン。`tape-icon.png`：ファビコン。
+- `lang-icon.svg`：言語アイコン。`favicon.png`：ファビコン。
 - `js/utils.js`：時間計算、ID、フォーマット用ツール。
 
 ### 注意

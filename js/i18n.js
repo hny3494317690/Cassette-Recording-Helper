@@ -1,7 +1,7 @@
 const translations = {};
 const fetchedLanguages = {};
-const defaultLang = 'zh-CN';
-let currentLang = defaultLang;
+const defaultLang = 'en';
+let currentLang = detectBrowserLanguage();
 
 function deepGet(obj, path) {
   return path.split('.').reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), obj);
@@ -62,6 +62,7 @@ async function setLanguage(lang) {
   currentLang = lang;
   await ensureTranslations(lang);
   applyTranslations();
+  if (document.documentElement) document.documentElement.lang = lang;
   if (typeof window.onLanguageChanged === 'function') {
     window.onLanguageChanged(lang);
   }
@@ -72,8 +73,21 @@ function getLanguage() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  if (document.documentElement) document.documentElement.lang = currentLang;
   ensureTranslations(currentLang).then(applyTranslations);
 });
+
+function detectBrowserLanguage() {
+  const prefs = navigator.languages || [navigator.language || navigator.userLanguage];
+  const normalized = prefs
+    .filter(Boolean)
+    .map((l) => String(l).toLowerCase());
+  for (const lang of normalized) {
+    if (lang.startsWith('zh')) return 'zh-CN';
+    if (lang.startsWith('ja')) return 'ja';
+  }
+  return 'en';
+}
 
 window.t = t;
 window.setLanguage = setLanguage;

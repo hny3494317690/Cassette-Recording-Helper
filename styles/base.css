@@ -31,8 +31,39 @@ header {
 }
 
 h1 {
-  margin: 0 0 8px;
+  margin: 0;
   font-size: 2rem;
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.lang-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+}
+
+.lang-switcher label {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.lang-switcher select {
+  border: none;
+  background: transparent;
+  font-size: 0.95rem;
+  padding: 4px 6px;
+  outline: none;
 }
 
 .panel {

@@ -15,6 +15,7 @@ const gapProgressRow = document.getElementById('gapProgressRow');
 const gapProgressBar = document.getElementById('gapProgressBar');
 const gapProgressText = document.getElementById('gapProgressText');
 const leadInput = document.getElementById('leadInput');
+const langSelect = document.getElementById('langSelect');
 
 const playlist = [];
 let sortable = null;
@@ -38,6 +39,13 @@ fileInput.addEventListener('change', (event) => {
   handleIncomingFiles(event.target.files);
   fileInput.value = '';
 });
+
+if (langSelect) {
+  langSelect.addEventListener('change', (event) => {
+    setLanguage(event.target.value);
+  });
+  langSelect.value = getLanguage();
+}
 
 if (dropZone) {
   dropZone.addEventListener('dragover', (event) => {
@@ -164,14 +172,14 @@ function renderPlaylist() {
   playlistElement.innerHTML = '';
   if (playlist.length === 0) {
     const empty = document.createElement('li');
-    empty.textContent = '尚未导入音轨';
+    empty.textContent = t('emptyList');
     empty.className = 'empty';
     playlistElement.appendChild(empty);
     currentIndex = -1;
-    nowPlayingLabel.textContent = '尚未选择音轨';
+    nowPlayingLabel.textContent = t('nowPlaying.idle');
     updateTotalDuration();
-    return;
-  }
+  return;
+}
 
   playlist.forEach((track, index) => {
     const node = template.content.firstElementChild.cloneNode(true);
@@ -179,13 +187,19 @@ function renderPlaylist() {
     node.dataset.id = track.id;
     node.querySelector('.track-title').textContent = track.name;
     node.querySelector('.track-duration').textContent = formatTrackDuration(track);
-    node.querySelector('.track-format').textContent = track.type || '音频文件';
+    node.querySelector('.track-format').textContent = track.type || t('audioFile');
+    const dragHint = node.querySelector('.drag-hint');
+    if (dragHint) dragHint.textContent = t('dragHint');
 
     const deleteButton = node.querySelector('.track-delete');
     deleteButton?.addEventListener('click', (event) => {
       event.stopPropagation();
       deleteTrack(index);
     });
+    if (deleteButton) {
+      deleteButton.textContent = t('delete');
+      deleteButton.setAttribute('aria-label', t('deleteThis'));
+    }
 
     const progress = document.createElement('input');
     progress.type = 'range';
@@ -238,7 +252,7 @@ function selectTrack(index, autoplay = false) {
   currentIndex = index;
   const track = playlist[index];
   track.finished = false;
-  nowPlayingLabel.textContent = `正在播放：${track.name}`;
+  nowPlayingLabel.textContent = t('nowPlaying.track', { name: track.name });
   highlightActive();
   loadHowl(track);
   refreshPlayButton();
@@ -282,7 +296,7 @@ function handleTrackEnded() {
   const gapSeconds = getGapSeconds();
   const shouldPause = gapSeconds > 0 && currentIndex >= 0 && currentIndex < playlist.length - 1;
   if (shouldPause) {
-    nowPlayingLabel.textContent = `空白间隔：${gapSeconds}s`;
+    nowPlayingLabel.textContent = t('nowPlaying.gap', { seconds: gapSeconds });
     clearGapState();
     isInGap = true;
     gapStartTime = performance.now();
@@ -305,7 +319,7 @@ function playNext() {
   } else {
     const last = playlist[currentIndex];
     if (last) last.finished = true;
-    nowPlayingLabel.textContent = '播放完成';
+    nowPlayingLabel.textContent = t('nowPlaying.done');
     stopHowl();
     highlightActive();
     updateTrackProgressUI();
@@ -317,7 +331,7 @@ function stopPlayback() {
   clearGapState();
   clearLeadState();
   stopHowl();
-  nowPlayingLabel.textContent = '尚未选择音轨';
+  nowPlayingLabel.textContent = t('nowPlaying.idle');
   currentIndex = -1;
   hasPlayedOnce = false;
   updateTrackProgressUI();
@@ -407,10 +421,15 @@ function updateTotalDuration() {
     totalDurationElement.removeAttribute('title');
     return;
   }
-  totalDurationElement.textContent = duration.pending ? '计算中…' : formatDuration(duration.totalSeconds);
+  totalDurationElement.textContent = duration.pending
+    ? t('durationCalculating')
+    : formatDuration(duration.totalSeconds);
   totalDurationElement.title = duration.pending
-    ? '等待音轨时长信息'
-    : `约 ${formatDuration(duration.totalSeconds)} (${Math.round(duration.totalSeconds)}s)`;
+    ? t('durationPendingTooltip')
+    : t('durationApproxTooltip', {
+        duration: formatDuration(duration.totalSeconds),
+        seconds: Math.round(duration.totalSeconds),
+      });
 }
 
 function computeDurations() {
@@ -493,13 +512,15 @@ function updateGapProgress(elapsed, total, hide = false, isLead = false) {
   if (hide || !showing || total <= 0) {
     gapProgressRow.hidden = true;
     gapProgressBar.style.width = '100%';
-    gapProgressText.textContent = '0s';
+    gapProgressText.textContent = t('gapCountdown', { seconds: 0 });
     return;
   }
   const percent = 100 - Math.min(100, Math.max(0, (elapsed / total) * 100));
   gapProgressRow.hidden = false;
   gapProgressBar.style.width = `${percent}%`;
-  gapProgressText.textContent = `${Math.max(0, total - elapsed).toFixed(1)}s`;
+  gapProgressText.textContent = t('gapCountdown', {
+    seconds: Math.max(0, total - elapsed).toFixed(1),
+  });
 }
 
 function ensureSortable() {
@@ -528,18 +549,18 @@ function reorder(from, to) {
 
 function refreshPlayButton() {
   const playing = currentHowl?.playing?.() || false;
-  togglePlayButton.textContent = playing ? '暂停' : '播放';
+  togglePlayButton.textContent = playing ? t('pause') : t('play');
 }
 
 function formatTrackDuration(track) {
-  if (track.status === 'pending') return '读取中…';
-  if (track.status === 'error' || !Number.isFinite(track.duration)) return '无法读取';
+  if (track.status === 'pending') return t('loadingDuration');
+  if (track.status === 'error' || !Number.isFinite(track.duration)) return t('unreadable');
   return formatDuration(track.duration);
 }
 
 function loadHowl(track) {
   if (!window.Howl) {
-    nowPlayingLabel.textContent = '播放器库未加载';
+    nowPlayingLabel.textContent = t('playerLibMissing');
     return;
   }
   stopHowl();
@@ -615,5 +636,29 @@ function startLeadGap(seconds) {
   }, seconds * 1000);
   leadInterval = window.setInterval(updateGlobalProgress, 100);
   updateGapProgress(0, seconds, false, true);
-  nowPlayingLabel.textContent = `前导空白：${seconds.toFixed(1)}s`;
+  nowPlayingLabel.textContent = t('nowPlaying.lead', { seconds: seconds.toFixed(1) });
 }
+
+window.onLanguageChanged = () => {
+  if (langSelect) {
+    langSelect.value = getLanguage();
+  }
+  renderPlaylist();
+  updateTotalDuration();
+  refreshPlayButton();
+  if (currentIndex < 0) {
+    nowPlayingLabel.textContent = t('nowPlaying.idle');
+  } else if (isInGap) {
+    nowPlayingLabel.textContent = t('nowPlaying.gap', { seconds: gapDurationSec });
+    const elapsed = Math.min((performance.now() - gapStartTime) / 1000, gapDurationSec);
+    updateGapProgress(elapsed, gapDurationSec);
+  } else if (isInLead) {
+    nowPlayingLabel.textContent = t('nowPlaying.lead', { seconds: leadDurationSec.toFixed(1) });
+    const elapsed = Math.min((performance.now() - leadStartTime) / 1000, leadDurationSec);
+    updateGapProgress(elapsed, leadDurationSec, false, true);
+  } else {
+    const currentTrack = playlist[currentIndex];
+    nowPlayingLabel.textContent = t('nowPlaying.track', { name: currentTrack?.name || '' });
+    updateGapProgress(0, 0, true);
+  }
+};

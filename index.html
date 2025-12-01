@@ -11,57 +11,67 @@
   <body>
     <main class="app">
       <header>
-        <h1>磁带录制助手</h1>
-        <p>导入音频、调整顺序、设置空白间隔并直接试听播放列表。</p>
+        <div class="header-top">
+          <h1 data-i18n="appTitle">磁带录制助手</h1>
+          <div class="lang-switcher">
+            <label for="langSelect" data-i18n="langLabel">语言</label>
+            <select id="langSelect">
+              <option value="zh-CN" data-i18n="langZh">简体中文</option>
+              <option value="en" data-i18n="langEn">English</option>
+              <option value="ja" data-i18n="langJa">日本語</option>
+            </select>
+          </div>
+        </div>
+        <p data-i18n="tagline">导入音频、调整顺序、设置空白间隔并直接试听播放列表。</p>
       </header>
 
       <section class="panel">
         <label class="file-drop">
-          <span>导入音轨（flac / wav / mp3 / dsd…）</span>
+          <span data-i18n="importLabel">导入音轨（flac / wav / mp3 / dsd…）</span>
           <input id="audioInput" type="file" accept="audio/*" multiple>
         </label>
-        <small>（浏览器仅能播放其支持的格式，暂不处理 DRM 文件。）</small>
+        <small data-i18n="importNote">（浏览器仅能播放其支持的格式，暂不处理 DRM 文件。）</small>
       </section>
 
       <section class="panel gap-panel">
-        <label for="gapInput">每两个音轨之间的空白（秒）</label>
+        <label for="gapInput" data-i18n="gapLabel">每两个音轨之间的空白（秒）</label>
         <input id="gapInput" type="number" min="0" step="1" value="3.0">
-        <label for="leadInput">前导空白（秒）</label>
+        <label for="leadInput" data-i18n="leadLabel">前导空白（秒）</label>
         <input id="leadInput" type="number" min="0" step="1" value="3.0">
         <div class="total-time">
-          <span>总时长：</span>
+          <span data-i18n="totalDurationLabel">总时长：</span>
           <strong id="totalDuration">00:00</strong>
         </div>
       </section>
 
       <section class="panel playlist-panel">
         <div class="panel-header">
-          <h2>播放顺序</h2>
-          <button id="clearList" type="button">清空列表</button>
+          <h2 data-i18n="playlistTitle">播放顺序</h2>
+          <button id="clearList" type="button" data-i18n="clearList">清空列表</button>
         </div>
         <ul id="playlist" class="playlist" aria-live="polite"></ul>
-        <p class="hint">拖拽列表项可调整顺序，点击即可在播放器中加载该音轨。</p>
+        <p class="hint" data-i18n="playlistHint">拖拽列表项可调整顺序，点击即可在播放器中加载该音轨。</p>
       </section>
 
       <section class="panel player-panel">
         <div class="panel-header">
-          <h2>播放器</h2>
+          <h2 data-i18n="playerTitle">播放器</h2>
           <div class="player-actions">
-            <button id="playAll" type="button">从头播放</button>
-            <button id="togglePlay" type="button">播放 / 暂停</button>
-            <button id="stopPlay" type="button">停止</button>
+            <button id="playAll" type="button" data-i18n="playFromStart">从头播放</button>
+            <button id="togglePlay" type="button" data-i18n="playPauseButton">播放 / 暂停</button>
+            <button id="stopPlay" type="button" data-i18n="stopButton">停止</button>
           </div>
         </div>
-        <p id="nowPlaying">尚未选择音轨</p>
+        <p id="nowPlaying" data-i18n="nowPlaying.idle">尚未选择音轨</p>
         <div class="progress-row">
-          <span class="progress-label">总进度</span>
+          <span class="progress-label" data-i18n="progressOverall">总进度</span>
           <div class="progress">
             <div id="globalProgressBar" class="progress-bar"></div>
           </div>
           <span id="globalProgressText" class="progress-text">00:00 / 00:00</span>
         </div>
         <div id="gapProgressRow" class="progress-row gap-row" hidden>
-          <span class="progress-label">空白</span>
+          <span class="progress-label" data-i18n="progressGap">空白</span>
           <div class="progress">
             <div id="gapProgressBar" class="progress-bar gap"></div>
           </div>
@@ -77,14 +87,15 @@
             <span class="track-title"></span>
             <span class="track-format"></span>
             <span class="track-duration"></span>
-            <span class="drag-hint">拖拽排序</span>
+            <span class="drag-hint" data-i18n="dragHint">拖拽排序</span>
           </div>
-          <button class="track-delete" type="button" aria-label="删除这首歌">删除</button>
+          <button class="track-delete" type="button" aria-label="删除这首歌" data-i18n="delete" data-i18n-aria="deleteThis">删除</button>
         </div>
       </li>
     </template>
 
     <script src="js/utils.js"></script>
+    <script src="js/i18n.js"></script>
     <script src="script.js"></script>
   </body>
 </html>

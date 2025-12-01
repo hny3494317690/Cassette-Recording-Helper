@@ -1,8 +1,8 @@
 {
   "appTitle": "Cassette Helper",
   "tagline": "Drop your tracks, set friendly gaps, and listen through the list right here.",
-  "importLabel": "Import tracks (flac / wav / mp3 / dsd…)",
-  "importNote": "(The browser only plays formats it supports; DRM files aren’t handled.)",
+  "importLabel": "Click or drop to add music files",
+  "importNote": "Some uncommon formats may not be supported",
   "gapLabel": "Silence between songs (sec)",
   "leadLabel": "Lead-in silence (sec)",
   "totalDurationLabel": "Total time:",
@@ -19,7 +19,7 @@
   "progressOverall": "Overall",
   "progressGap": "Gap",
   "langLabel": "Language",
-  "langZh": "中文",
+  "langZh": "简体中文",
   "langEn": "English",
   "langJa": "日本語",
   "nowPlaying": {

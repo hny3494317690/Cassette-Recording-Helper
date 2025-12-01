@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>磁带录制助手</title>
+    <link rel="icon" type="image/png" href="tape-icon.png" />
     <script src="https://cdn.jsdelivr.net/npm/howler@2.2.4/dist/howler.core.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <link rel="stylesheet" href="style.css">
@@ -13,13 +14,15 @@
       <header>
         <div class="header-top">
           <h1 data-i18n="appTitle">磁带录制助手</h1>
-          <div class="lang-switcher">
-            <label for="langSelect" data-i18n="langLabel">语言</label>
-            <select id="langSelect">
-              <option value="zh-CN" data-i18n="langZh">简体中文</option>
-              <option value="en" data-i18n="langEn">English</option>
-              <option value="ja" data-i18n="langJa">日本語</option>
-            </select>
+          <div class="lang-menu">
+            <button id="langButton" class="lang-button" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Language">
+              <img class="lang-icon" src="lang-icon.svg" alt="">
+            </button>
+            <div id="langMenu" class="lang-dropdown" hidden>
+              <button type="button" data-lang="zh-CN">简体中文</button>
+              <button type="button" data-lang="en">English</button>
+              <button type="button" data-lang="ja">日本語</button>
+            </div>
           </div>
         </div>
         <p data-i18n="tagline">导入音频、调整顺序、设置空白间隔并直接试听播放列表。</p>

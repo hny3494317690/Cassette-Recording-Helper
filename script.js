@@ -15,7 +15,9 @@ const gapProgressRow = document.getElementById('gapProgressRow');
 const gapProgressBar = document.getElementById('gapProgressBar');
 const gapProgressText = document.getElementById('gapProgressText');
 const leadInput = document.getElementById('leadInput');
-const langSelect = document.getElementById('langSelect');
+const langButton = document.getElementById('langButton');
+const langMenu = document.getElementById('langMenu');
+let updateLangMenuHighlight = () => {};
 
 const playlist = [];
 let sortable = null;
@@ -40,11 +42,41 @@ fileInput.addEventListener('change', (event) => {
   fileInput.value = '';
 });
 
-if (langSelect) {
-  langSelect.addEventListener('change', (event) => {
-    setLanguage(event.target.value);
+if (langButton && langMenu) {
+  updateLangMenuHighlight = (lang = getLanguage()) => {
+    langMenu.querySelectorAll('button').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.lang === lang);
+    });
+  };
+
+  langButton.addEventListener('click', () => {
+    const isOpen = !langMenu.hasAttribute('hidden');
+    if (isOpen) {
+      langMenu.setAttribute('hidden', '');
+      langButton.setAttribute('aria-expanded', 'false');
+    } else {
+      langMenu.removeAttribute('hidden');
+      langButton.setAttribute('aria-expanded', 'true');
+      updateLangMenuHighlight();
+    }
   });
-  langSelect.value = getLanguage();
+
+  langMenu.querySelectorAll('button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const lang = btn.dataset.lang;
+      setLanguage(lang);
+      updateLangMenuHighlight(lang);
+      langMenu.setAttribute('hidden', '');
+      langButton.setAttribute('aria-expanded', 'false');
+    });
+  });
+
+  document.addEventListener('click', (event) => {
+    if (!langMenu.contains(event.target) && !langButton.contains(event.target)) {
+      langMenu.setAttribute('hidden', '');
+      langButton.setAttribute('aria-expanded', 'false');
+    }
+  });
 }
 
 if (dropZone) {
@@ -640,12 +672,10 @@ function startLeadGap(seconds) {
 }
 
 window.onLanguageChanged = () => {
-  if (langSelect) {
-    langSelect.value = getLanguage();
-  }
   renderPlaylist();
   updateTotalDuration();
   refreshPlayButton();
+  updateLangMenuHighlight();
   if (currentIndex < 0) {
     nowPlayingLabel.textContent = t('nowPlaying.idle');
   } else if (isInGap) {

@@ -1,8 +1,8 @@
 {
   "appTitle": "カセット録音ヘルパー",
   "tagline": "曲を放り込んで間をあけて、ここでまとめて再生できます。",
-  "importLabel": "音源を追加（flac / wav / mp3 / dsd…）",
-  "importNote": "（ブラウザが再生できる形式のみ対応。DRM 付きは扱えません）",
+  "importLabel": "クリックかドラッグで音源を追加",
+  "importNote": "一部の特殊形式は再生できない場合があります",
   "gapLabel": "曲間の無音（秒）",
   "leadLabel": "頭出しの無音（秒）",
   "totalDurationLabel": "合計時間：",
@@ -19,8 +19,8 @@
   "progressOverall": "全体",
   "progressGap": "無音",
   "langLabel": "言語",
-  "langZh": "簡体字",
-  "langEn": "英語",
+  "langZh": "简体中文",
+  "langEn": "English",
   "langJa": "日本語",
   "nowPlaying": {
     "idle": "まだ曲が選ばれていません",

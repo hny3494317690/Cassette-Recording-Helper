@@ -18,6 +18,11 @@ const leadInput = document.getElementById('leadInput');
 const langButton = document.getElementById('langButton');
 const langMenu = document.getElementById('langMenu');
 let updateLangMenuHighlight = () => {};
+const lockToggle = document.getElementById('lockReorder');
+function applyDragLockState() {
+  const canDrag = !lockToggle?.checked;
+  toggleSortable(canDrag);
+}
 
 const playlist = [];
 let sortable = null;
@@ -145,6 +150,12 @@ window.addEventListener('beforeunload', () => {
   playlist.forEach((item) => URL.revokeObjectURL(item.url));
 });
 
+if (lockToggle) {
+  lockToggle.checked = false; // default to unlocked every time
+  lockToggle.addEventListener('change', applyDragLockState);
+}
+applyDragLockState();
+
 function handleIncomingFiles(fileList) {
   const files = Array.from(fileList || []);
   files.forEach(queueTrack);
@@ -217,11 +228,18 @@ function renderPlaylist() {
     const node = template.content.firstElementChild.cloneNode(true);
     node.dataset.index = String(index);
     node.dataset.id = track.id;
+    const number = node.querySelector('.track-number');
+    if (number) number.textContent = `${index + 1}.`;
     node.querySelector('.track-title').textContent = track.name;
     node.querySelector('.track-duration').textContent = formatTrackDuration(track);
     node.querySelector('.track-format').textContent = track.type || t('audioFile');
-    const dragHint = node.querySelector('.drag-hint');
-    if (dragHint) dragHint.textContent = t('dragHint');
+    const dragHandle = node.querySelector('.drag-handle');
+    if (dragHandle) {
+      const label = t('dragHandle');
+      dragHandle.textContent = label;
+      dragHandle.setAttribute('aria-label', label);
+      dragHandle.setAttribute('title', label);
+    }
 
     const deleteButton = node.querySelector('.track-delete');
     deleteButton?.addEventListener('click', (event) => {
@@ -264,6 +282,7 @@ function renderPlaylist() {
   updateTrackProgressUI();
   updateTotalDuration();
   ensureSortable();
+  applyDragLockState();
 }
 
 function deleteTrack(index) {
@@ -543,7 +562,7 @@ function updateGapProgress(elapsed, total, hide = false, isLead = false) {
   const showing = isLead ? isInLead : isInGap;
   if (hide || !showing || total <= 0) {
     gapProgressRow.hidden = true;
-    gapProgressBar.style.width = '100%';
+    gapProgressBar.style.width = '0%';
     gapProgressText.textContent = t('gapCountdown', { seconds: 0 });
     return;
   }
@@ -559,7 +578,7 @@ function ensureSortable() {
   if (!window.Sortable || sortable) return;
   sortable = window.Sortable.create(playlistElement, {
     animation: 150,
-    handle: '.track',
+    handle: '.drag-handle',
     ghostClass: 'drag-ghost',
     chosenClass: 'drag-chosen',
     onEnd(evt) {
@@ -581,8 +600,19 @@ function reorder(from, to) {
 
 function refreshPlayButton() {
   const playing = currentHowl?.playing?.() || false;
-  togglePlayButton.textContent = playing ? t('pause') : t('play');
+  togglePlayButton.textContent = playing ? t('pause') : t('playPauseButton');
 }
+
+function toggleSortable(enabled) {
+  if (sortable) {
+    sortable.option('disabled', !enabled);
+    const dragHandles = playlistElement.querySelectorAll('.drag-handle');
+    dragHandles.forEach((el) => el.classList.toggle('disabled', !enabled));
+    const rows = playlistElement.querySelectorAll('.track');
+    rows.forEach((row) => row.classList.toggle('drag-locked', !enabled));
+  }
+}
+
 
 function formatTrackDuration(track) {
   if (track.status === 'pending') return t('loadingDuration');

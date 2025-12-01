@@ -54,8 +54,15 @@
 
       <section class="panel playlist-panel">
         <div class="panel-header">
-          <h2 data-i18n="playlistTitle">Play order</h2>
-          <button id="clearList" type="button" data-i18n="clearList">Clear list</button>
+          <h2 data-i18n="playlistTitle">Playlist</h2>
+          <div class="playlist-actions">
+            <label class="lock-toggle" aria-label="Toggle drag lock" data-i18n-aria="toggleLockDrag">
+              <input type="checkbox" id="lockReorder">
+              <span class="slider"></span>
+              <span class="lock-label" data-i18n="lockDrag">Lock drag</span>
+            </label>
+            <button id="clearList" type="button" data-i18n="clearList">Clear list</button>
+          </div>
         </div>
         <ul id="playlist" class="playlist" aria-live="polite"></ul>
         <p class="hint" data-i18n="playlistHint">Drag to reorder; click any track to load in the player.</p>
@@ -89,14 +96,15 @@
     </main>
 
     <template id="playlistItemTemplate">
-      <li class="track" draggable="true">
+      <li class="track" draggable="false">
         <div class="track-row">
           <div class="track-meta">
+            <span class="track-number"></span>
             <span class="track-title"></span>
             <span class="track-format"></span>
             <span class="track-duration"></span>
-            <span class="drag-hint" data-i18n="dragHint">Drag to reorder</span>
           </div>
+          <span class="drag-handle" aria-label="Drag to reorder" title="Drag to reorder"></span>
           <button class="track-delete" type="button" aria-label="Delete this track" data-i18n="delete" data-i18n-aria="deleteThis">Delete</button>
         </div>
       </li>

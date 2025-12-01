@@ -14,14 +14,23 @@
       <header>
         <div class="header-top">
           <h1 data-i18n="appTitle">Cassette Recording Helper</h1>
-          <div class="lang-menu">
-            <button id="langButton" class="lang-button" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Language">
-              <img class="lang-icon" src="lang-icon.svg" alt="">
-            </button>
-            <div id="langMenu" class="lang-dropdown" hidden>
-              <button type="button" data-lang="zh-CN">简体中文</button>
-              <button type="button" data-lang="en">English</button>
-              <button type="button" data-lang="ja">日本語</button>
+          <div class="header-actions">
+            <label class="theme-toggle" aria-label="Toggle dark mode" data-i18n-aria="toggleTheme">
+              <input type="checkbox" id="themeSwitch">
+              <span class="slider" aria-hidden="true">
+                <span class="thumb"></span>
+              </span>
+              <span class="sr-only" data-i18n="toggleTheme">Toggle dark mode</span>
+            </label>
+            <div class="lang-menu">
+              <button id="langButton" class="lang-button" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Language">
+                <img class="lang-icon" src="lang-icon.svg" alt="">
+              </button>
+              <div id="langMenu" class="lang-dropdown" hidden>
+                <button type="button" data-lang="zh-CN">简体中文</button>
+                <button type="button" data-lang="en">English</button>
+                <button type="button" data-lang="ja">日本語</button>
+              </div>
             </div>
           </div>
         </div>

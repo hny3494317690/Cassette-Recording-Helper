@@ -13,14 +13,14 @@
   color: var(--text-muted);
   border: 1px dashed var(--border);
   border-radius: 10px;
-  background: #fff;
+  background: var(--panel);
 }
 
 .track {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 12px 14px;
-  background: #fff;
+  background: var(--panel);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -198,6 +198,30 @@
 
 .insert-indicator.visible {
   opacity: 1;
+}
+
+:root.theme-dark .progress {
+  background: #262d41;
+}
+
+:root.theme-dark .drag-handle {
+  background: rgba(107, 162, 255, 0.12);
+  border-color: rgba(107, 162, 255, 0.35);
+}
+
+:root.theme-dark .drag-handle.disabled {
+  color: #7c86a6;
+  border-color: #3a425a;
+  background: #1f2537;
+}
+
+:root.theme-dark .track-delete {
+  color: #ffb2b2;
+  border-color: #834040;
+}
+
+:root.theme-dark .track-delete:hover {
+  background: rgba(255, 140, 140, 0.12);
 }
 
 .playlist-actions {

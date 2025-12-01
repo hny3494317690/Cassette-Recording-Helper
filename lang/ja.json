@@ -25,6 +25,7 @@
   "langZh": "简体中文",
   "langEn": "English",
   "langJa": "日本語",
+  "toggleTheme": "ダークモードを切り替え",
   "nowPlaying": {
     "idle": "まだ曲が選ばれていません",
     "track": "再生中：{name}",

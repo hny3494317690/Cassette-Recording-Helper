@@ -1,0 +1,170 @@
+:root {
+  color-scheme: light dark;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.5;
+  font-size: 16px;
+  --bg: #f6f7fb;
+  --panel: #ffffff;
+  --border: #d5dae3;
+  --accent: #3a6fff;
+  --text-muted: #6c7484;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: #111;
+}
+
+.app {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 32px 20px 60px;
+}
+
+header {
+  margin-bottom: 24px;
+}
+
+h1 {
+  margin: 0 0 8px;
+  font-size: 2rem;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 18px;
+  box-shadow: 0 10px 30px rgba(16, 18, 32, 0.08);
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.player-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.file-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  cursor: pointer;
+  font-weight: 600;
+  text-align: center;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.file-drop.dragover {
+  border-color: var(--accent);
+  background: rgba(58, 111, 255, 0.05);
+}
+
+.file-drop input {
+  width: 1px;
+  height: 1px;
+  clip: rect(0 0 0 0);
+  position: absolute;
+  overflow: hidden;
+  border: 0;
+}
+
+.gap-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.gap-panel input[type='number'] {
+  width: 120px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-size: 1rem;
+}
+
+.total-time {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 1rem;
+}
+
+.hint {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-top: 10px;
+}
+
+button {
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+button:hover {
+  opacity: 0.9;
+}
+
+
+#playAll,
+#togglePlay,
+#stopPlay {
+  min-width: 90px;
+}
+
+#togglePlay {
+  background: #2c9c4a;
+}
+
+#stopPlay {
+  background: #a93b3b;
+}
+
+#togglePlay:hover,
+#stopPlay:hover {
+  opacity: 0.92;
+}
+
+#nowPlaying {
+  margin: 0;
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .app {
+    padding: 20px 14px 50px;
+  }
+
+  .gap-panel {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .total-time {
+    margin-left: 0;
+  }
+}

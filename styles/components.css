@@ -1,0 +1,175 @@
+.playlist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.playlist .empty {
+  text-align: center;
+  padding: 16px;
+  color: var(--text-muted);
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.track {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: grab;
+}
+
+.track.dragging {
+  opacity: 0.5;
+}
+
+.track.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(58, 111, 255, 0.35);
+}
+
+.track.drop-target {
+  border-color: var(--accent);
+}
+
+.track.drag-ghost {
+  opacity: 0.6;
+}
+
+.track.drag-chosen {
+  transform: scale(1.01);
+  box-shadow: 0 8px 20px rgba(16, 18, 32, 0.15);
+}
+
+.track-meta {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.track-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.track-title {
+  font-weight: 600;
+  word-break: break-all;
+  flex: 1 1 auto;
+}
+
+.track-duration {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  flex: 0 0 auto;
+}
+
+.track-format {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  flex: 0 0 auto;
+  min-width: 90px;
+  text-align: right;
+}
+
+.track-progress {
+  width: 100%;
+  accent-color: var(--accent);
+  margin-top: 6px;
+}
+
+.track-progress.done {
+  accent-color: #e53935;
+  pointer-events: none;
+}
+
+.track-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.drag-hint {
+  cursor: grab;
+  color: var(--accent);
+  font-weight: 600;
+  margin-left: auto;
+}
+
+.track-delete {
+  background: transparent;
+  color: #e04b4b;
+  border: 1px solid #e5b0b0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.track-delete:hover {
+  background: #ffecec;
+}
+
+.progress-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.progress-label {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.progress {
+  flex: 1;
+  height: 10px;
+  background: #eceff5;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), #7ba3ff);
+  transition: width 0.1s linear;
+}
+
+.progress-text {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.gap-row .progress-bar {
+  background: linear-gradient(90deg, #ff9a62, #ff4b3e);
+}
+
+.insert-indicator {
+  height: 6px;
+  background: var(--accent);
+  border-radius: 999px;
+  margin: 4px 0;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+  pointer-events: none;
+}
+
+.insert-indicator.visible {
+  opacity: 1;
+}

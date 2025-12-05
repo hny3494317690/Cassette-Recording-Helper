@@ -19,10 +19,12 @@ const langButton = document.getElementById('langButton');
 const langMenu = document.getElementById('langMenu');
 let updateLangMenuHighlight = () => {};
 const lockToggle = document.getElementById('lockReorder');
+const levelCheckToggle = document.getElementById('levelCheckToggle');
 const themeSwitch = document.getElementById('themeSwitch');
 const themeLabel = document.querySelector('.theme-emoji'); // holds sun/moon emoji
 const analyzePeakButton = document.getElementById('analyzePeak');
-const playPeakButton = document.getElementById('playPeakSnippet');
+const playPeakFromStartButton = document.getElementById('playPeakFromStart');
+const togglePeakPlayButton = document.getElementById('togglePeakPlay');
 const peakStatus = document.getElementById('peakStatus');
 const peakWaveform = document.getElementById('peakWaveform');
 const peakCtx = null;
@@ -61,9 +63,32 @@ function formatSeconds(value) {
   return `${minutes}:${seconds}`;
 }
 
+function formatAdjustDb(value) {
+  if (!Number.isFinite(value)) return '0.0';
+  if (value > 0) return `+${value.toFixed(1)}`;
+  if (value === 0) return '0.0';
+  return value.toFixed(1);
+}
+
+function parseAdjustDb(value) {
+  const num = Number.parseFloat(String(value).replace('+', ''));
+  return Number.isFinite(num) ? Number(num.toFixed(1)) : 0;
+}
+
+function applyTrackGain(track) {
+  if (!track || !currentHowl || playlist[currentIndex]?.id !== track.id) return;
+  const gain = Math.max(0, Math.min(2, Math.pow(10, (track.adjustDb || 0) / 20)));
+  currentHowl.volume(gain);
+}
+
 function applyDragLockState() {
   const canDrag = !lockToggle?.checked;
   toggleSortable(canDrag);
+}
+
+function setPeakControlsEnabled(enabled) {
+  if (playPeakFromStartButton) playPeakFromStartButton.disabled = !enabled;
+  if (togglePeakPlayButton) togglePeakPlayButton.disabled = !enabled;
 }
 
 function ensureAudioContext() {
@@ -73,6 +98,38 @@ function ensureAudioContext() {
     audioCtx = new Ctx();
   }
   return audioCtx;
+}
+
+async function computeTrackLevels(track) {
+  const ctx = ensureAudioContext();
+  if (!ctx || !track?.file) return;
+  try {
+    const arrayBuffer = await track.file.arrayBuffer();
+    const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+    let maxAbs = 0;
+    let sumSquares = 0;
+    let count = 0;
+    for (let ch = 0; ch < audioBuffer.numberOfChannels; ch += 1) {
+      const data = audioBuffer.getChannelData(ch);
+      for (let i = 0; i < data.length; i += 1) {
+        const v = data[i];
+        const abs = Math.abs(v);
+        if (abs > maxAbs) maxAbs = abs;
+        sumSquares += v * v;
+        count += 1;
+      }
+    }
+    const rms = count > 0 ? Math.sqrt(sumSquares / count) : 0;
+    const toDb = (val) => (val > 0 ? 20 * Math.log10(val) : -Infinity);
+    track.avgDb = toDb(rms);
+    track.peakDb = toDb(maxAbs);
+    track.levelComputed = true;
+  } catch (err) {
+    console.error('Level check failed', err);
+    track.avgDb = null;
+    track.peakDb = null;
+    track.levelComputed = false;
+  }
 }
 
 function setPeakStatus(key, params) {
@@ -198,6 +255,8 @@ let peakSurfer = null;
 let peakSurferReady = false;
 let peakSurferTimeHandler = null;
 let peakTargetEnd = null;
+let autoLevelCheck = false;
+let peakPausedAt = 0;
 
 fileInput.addEventListener('change', (event) => {
   handleIncomingFiles(event.target.files);
@@ -313,6 +372,27 @@ if (lockToggle) {
 }
 applyDragLockState();
 
+async function runLevelCheck() {
+  if (!playlist.length) return;
+  if (levelCheckToggle) levelCheckToggle.disabled = true;
+  for (const track of playlist) {
+    await computeTrackLevels(track);
+  }
+  renderPlaylist();
+  if (levelCheckToggle) levelCheckToggle.disabled = false;
+}
+
+if (levelCheckToggle) {
+  const savedAuto = localStorage.getItem('autoLevelCheck');
+  autoLevelCheck = savedAuto === '1';
+  levelCheckToggle.checked = autoLevelCheck;
+  levelCheckToggle.addEventListener('change', () => {
+    autoLevelCheck = levelCheckToggle.checked;
+    localStorage.setItem('autoLevelCheck', autoLevelCheck ? '1' : '0');
+    if (autoLevelCheck) runLevelCheck();
+  });
+}
+
 if (themeSwitch) {
   const savedTheme = localStorage.getItem('theme') ?? localStorage.getItem('crh-theme');
   if (savedTheme === 'dark') {
@@ -329,7 +409,7 @@ if (themeSwitch) {
 if (analyzePeakButton) {
   analyzePeakButton.addEventListener('click', () => {
     analyzePeakButton.disabled = true;
-    if (playPeakButton) playPeakButton.disabled = true;
+    setPeakControlsEnabled(false);
     resizePeakCanvas();
     handlePeakAnalysis().finally(() => {
       analyzePeakButton.disabled = false;
@@ -337,9 +417,15 @@ if (analyzePeakButton) {
   });
 }
 
-if (playPeakButton) {
-  playPeakButton.addEventListener('click', () => {
-    playPeakExcerpt();
+if (playPeakFromStartButton) {
+  playPeakFromStartButton.addEventListener('click', () => {
+    playPeakExcerpt(true);
+  });
+}
+
+if (togglePeakPlayButton) {
+  togglePeakPlayButton.addEventListener('click', () => {
+    togglePeakPlayback();
   });
 }
 
@@ -348,6 +434,7 @@ window.addEventListener('resize', () => {
 });
 
 setPeakStatus('peakIdle');
+setPeakControlsEnabled(false);
 
 function handleIncomingFiles(fileList) {
   const files = Array.from(fileList || []);
@@ -365,10 +452,16 @@ function queueTrack(file) {
     duration: null,
     status: 'pending',
     finished: false,
+    avgDb: null,
+    peakDb: null,
+    adjustDb: 0,
   };
   playlist.push(track);
   renderPlaylist();
   probeDuration(track);
+  if (autoLevelCheck) {
+    computeTrackLevels(track).then(() => renderPlaylist());
+  }
 }
 
 function probeDuration(track) {
@@ -444,6 +537,41 @@ function renderPlaylist() {
       deleteButton.setAttribute('aria-label', t('deleteThis'));
     }
 
+    const levels = document.createElement('div');
+    levels.className = 'track-levels';
+    const values = document.createElement('span');
+    values.className = 'level-values';
+    const avgText = Number.isFinite(track.avgDb) ? track.avgDb.toFixed(1) : '--';
+    const peakText = Number.isFinite(track.peakDb) ? track.peakDb.toFixed(1) : '--';
+    values.textContent = t('levelSummary', { avg: avgText, peak: peakText });
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.step = '0.1';
+    input.inputMode = 'decimal';
+    input.value = formatAdjustDb(Number.isFinite(track.adjustDb) ? track.adjustDb : 0);
+    input.title = t('adjustLevel');
+    input.setAttribute('aria-label', t('adjustLevel'));
+    input.addEventListener('click', (e) => e.stopPropagation());
+    const applyInput = () => {
+      track.adjustDb = parseAdjustDb(input.value);
+      input.value = formatAdjustDb(track.adjustDb);
+      applyTrackGain(track);
+    };
+    input.addEventListener('input', (e) => {
+      e.stopPropagation();
+      track.adjustDb = parseAdjustDb(input.value);
+      applyTrackGain(track);
+    });
+    input.addEventListener('blur', applyInput);
+    levels.append(values, input);
+    const trackRow = node.querySelector('.track-row');
+    if (trackRow) {
+      const insertBeforeNode = dragHandle || node.querySelector('.track-delete') || null;
+      trackRow.insertBefore(levels, insertBeforeNode);
+    } else {
+      node.appendChild(levels);
+    }
+
     const progress = document.createElement('input');
     progress.type = 'range';
     progress.min = 0;
@@ -494,7 +622,7 @@ function selectTrack(index, autoplay = false) {
   if (index < 0 || index >= playlist.length) return;
   stopSnippet();
   peakInfo = null;
-  if (playPeakButton) playPeakButton.disabled = true;
+  setPeakControlsEnabled(false);
   setPeakStatus('peakNeedAnalyze');
   clearGapState();
   currentIndex = index;
@@ -505,7 +633,7 @@ function selectTrack(index, autoplay = false) {
   loadHowl(track);
   refreshPlayButton();
   if (peakStatus) setPeakStatus('peakNeedAnalyze');
-  if (playPeakButton) playPeakButton.disabled = true;
+  setPeakControlsEnabled(false);
   clearSpectrum();
   if (autoplay) {
     if (!hasPlayedOnce) {
@@ -845,6 +973,7 @@ function loadHowl(track) {
     },
     onend: handleTrackEnded,
   });
+  applyTrackGain(track);
 }
 function playCurrent() {
   if (!currentHowl) return;
@@ -1013,7 +1142,7 @@ async function handlePeakAnalysis() {
       });
       peakSurfer.load(track.url);
     }
-    if (playPeakButton) playPeakButton.disabled = false;
+    setPeakControlsEnabled(true);
     setPeakStatus('peakResult', {
       time: formatSeconds(peakTime),
       start: formatSeconds(start),
@@ -1023,7 +1152,7 @@ async function handlePeakAnalysis() {
     console.error('Peak analysis failed', error);
     setPeakStatus('peakError');
     peakInfo = null;
-    if (playPeakButton) playPeakButton.disabled = true;
+    setPeakControlsEnabled(false);
   }
 }
 
@@ -1056,17 +1185,18 @@ function drawSpectrum() {
   render();
 }
 
-function playPeakExcerpt() {
+function playPeakExcerpt(reset = false) {
   if (!peakInfo || !playlist[currentIndex] || playlist[currentIndex].id !== peakInfo.trackId) {
     setPeakStatus('peakTrackChanged');
-    if (playPeakButton) playPeakButton.disabled = true;
+    setPeakControlsEnabled(false);
     return;
   }
   if (currentHowl?.playing?.()) {
     pauseCurrent();
   }
   const totalDuration = peakInfo.buffer.duration;
-  const start = Math.max(0, Math.min(totalDuration - 0.05, peakInfo.start));
+  const baseStart = reset ? peakInfo.start : (peakSurfer?.getCurrentTime?.() ?? peakPausedAt ?? peakInfo.start);
+  const start = Math.max(0, Math.min(totalDuration - 0.05, baseStart));
   const duration = Math.min(15, Math.max(0.05, totalDuration - start));
   const end = Math.min(totalDuration, start + duration);
   peakTargetEnd = null;
@@ -1074,9 +1204,12 @@ function playPeakExcerpt() {
     const playWithSurfer = () => {
       if (!peakSurfer) return;
       const surferDuration = peakSurfer.getDuration ? peakSurfer.getDuration() : totalDuration;
-      const safeStart = Math.max(0, Math.min(surferDuration - 0.01, start));
+      const currentPos = peakSurfer.getCurrentTime ? peakSurfer.getCurrentTime() : start;
+      const chosenStart = reset ? start : currentPos;
+      const safeStart = Math.max(0, Math.min(surferDuration - 0.01, chosenStart));
       const safeEnd = Math.min(surferDuration, end);
       peakTargetEnd = safeEnd;
+      peakPausedAt = 0;
       peakSurfer.stop();
       peakSurfer.setTime(safeStart);
       updatePeakTimeUI(safeStart, surferDuration);
@@ -1108,6 +1241,7 @@ function playPeakExcerpt() {
     analyser.connect(snippetGain);
     snippetGain.connect(ctx.destination);
     snippetSource.start(0, start, duration);
+    peakPausedAt = 0;
     const startedAt = ctx.currentTime;
     const tick = () => {
       const elapsed = ctx.currentTime - startedAt;
@@ -1127,6 +1261,29 @@ function playPeakExcerpt() {
     start: formatSeconds(start),
     end: formatSeconds(end),
   });
+}
+
+function togglePeakPlayback() {
+  if (!peakInfo || !playlist[currentIndex] || playlist[currentIndex].id !== peakInfo.trackId) {
+    setPeakStatus('peakTrackChanged');
+    setPeakControlsEnabled(false);
+    return;
+  }
+  if (peakSurfer && typeof peakSurfer.isPlaying === 'function') {
+    if (peakSurfer.isPlaying()) {
+      peakPausedAt = peakSurfer.getCurrentTime ? peakSurfer.getCurrentTime() : 0;
+      peakSurfer.pause();
+      return;
+    }
+    playPeakExcerpt(false);
+    return;
+  }
+  if (snippetSource) {
+    stopSnippet();
+    setPeakStatus('peakDone');
+    return;
+  }
+  playPeakExcerpt(false);
 }
 
 window.onLanguageChanged = () => {

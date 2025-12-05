@@ -277,6 +277,28 @@
   flex-wrap: wrap;
 }
 
+.track-levels {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.track-levels .level-values {
+  white-space: nowrap;
+}
+
+.track-levels input {
+  width: 64px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 1rem;
+}
+
 .drag-tip {
   color: var(--text-muted);
   font-size: 0.9rem;

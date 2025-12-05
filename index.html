@@ -66,6 +66,11 @@
         <div class="panel-header">
           <h2 data-i18n="playlistTitle">Playlist</h2>
           <div class="playlist-actions">
+            <label class="lock-toggle level-toggle" aria-label="Toggle auto level check" data-i18n-aria="runLevelCheck">
+              <input type="checkbox" id="levelCheckToggle">
+              <span class="slider"></span>
+              <span class="lock-label" data-i18n="runLevelCheck">执行电平检查</span>
+            </label>
             <label class="lock-toggle" aria-label="Toggle drag lock" data-i18n-aria="toggleLockDrag">
               <input type="checkbox" id="lockReorder">
               <span class="slider"></span>
@@ -109,11 +114,13 @@
           <h2 data-i18n="levelCheckTitle">Level check</h2>
           <div class="peak-actions">
             <button id="analyzePeak" type="button" data-i18n="analyzePeak">Analyze peak</button>
-            <button id="playPeakSnippet" type="button" data-i18n="playPeakSnippet" disabled>Play peak excerpt</button>
+            <button id="playPeakFromStart" type="button" data-i18n="playFromStart" disabled>Play from start</button>
+            <button id="togglePeakPlay" type="button" data-i18n="playPauseButton" disabled>Play / Pause</button>
           </div>
         </div>
         <p id="peakStatus" class="peak-status" data-i18n="peakIdle">Select a track and analyze to find the loudest spot.</p>
         <div id="peakWaveform" class="peak-waveform" aria-label="Waveform visualization"></div>
+        <p class="hint" data-i18n="levelNote">电平检查用于没有自动电平调节的老式卡座或简易录音机，可选用。</p>
       </section>
     </main>
 

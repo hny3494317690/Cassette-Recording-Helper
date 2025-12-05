@@ -21,6 +21,11 @@ let updateLangMenuHighlight = () => {};
 const lockToggle = document.getElementById('lockReorder');
 const themeSwitch = document.getElementById('themeSwitch');
 const themeLabel = document.querySelector('.theme-emoji'); // holds sun/moon emoji
+const analyzePeakButton = document.getElementById('analyzePeak');
+const playPeakButton = document.getElementById('playPeakSnippet');
+const peakStatus = document.getElementById('peakStatus');
+const peakCanvas = document.getElementById('peakCanvas');
+const peakCtx = peakCanvas ? peakCanvas.getContext('2d') : null;
 
 function updateThemeLabel(useDark) {
   if (!themeLabel) return;
@@ -38,9 +43,167 @@ function applyTheme(useDark, persist = true) {
   if (themeSwitch) themeSwitch.checked = useDark;
   updateThemeLabel(useDark);
 }
+
+function formatSeconds(value) {
+  if (!Number.isFinite(value)) return '0:00';
+  const minutes = Math.floor(value / 60);
+  const seconds = (value % 60).toFixed(1).padStart(4, '0');
+  return `${minutes}:${seconds}`;
+}
+
 function applyDragLockState() {
   const canDrag = !lockToggle?.checked;
   toggleSortable(canDrag);
+}
+
+function ensureAudioContext() {
+  if (!audioCtx) {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    audioCtx = new Ctx();
+  }
+  return audioCtx;
+}
+
+function setPeakStatus(key, params) {
+  if (!peakStatus) return;
+  if (typeof key === 'string') {
+    peakStatusKey = key;
+    peakStatusParams = params;
+    peakStatus.textContent = t(key, params);
+  } else {
+    peakStatus.textContent = key;
+  }
+}
+
+function clearSpectrum() {
+  if (spectrumTimer) {
+    cancelAnimationFrame(spectrumTimer);
+    spectrumTimer = null;
+  }
+  if (snippetAnimation) {
+    cancelAnimationFrame(snippetAnimation);
+    snippetAnimation = null;
+  }
+  if (peakCtx && peakCanvas) {
+    peakCtx.clearRect(0, 0, peakCanvas.width, peakCanvas.height);
+  }
+}
+
+function stopSnippet() {
+  if (snippetSource) {
+    try {
+      snippetSource.stop();
+    } catch (e) {
+      // ignore
+    }
+    snippetSource.disconnect();
+    snippetSource = null;
+  }
+  if (snippetGain) {
+    snippetGain.disconnect();
+    snippetGain = null;
+  }
+  if (analyser) {
+    analyser.disconnect();
+    analyser = null;
+  }
+  clearSpectrum();
+}
+
+function computeWaveform(buffer) {
+  const width = peakCanvasWidth || peakCanvas?.width || 640;
+  const buckets = Math.max(64, Math.min(1024, Math.floor(width)));
+  const left = new Float32Array(buckets);
+  const right = new Float32Array(buckets);
+  const channels = Math.min(2, buffer.numberOfChannels);
+  for (let ch = 0; ch < channels; ch += 1) {
+    const data = buffer.getChannelData(ch);
+    const bucketSize = data.length / buckets;
+    for (let i = 0; i < buckets; i += 1) {
+      const start = Math.floor(i * bucketSize);
+      const end = Math.floor(start + bucketSize);
+      let peak = 0;
+      for (let j = start; j < end && j < data.length; j += 1) {
+        const v = Math.abs(data[j]);
+        if (v > peak) peak = v;
+      }
+      if (ch === 0) left[i] = peak;
+      else right[i] = peak;
+    }
+  }
+  if (channels === 1) right.set(left);
+  return { left, right, buckets };
+}
+
+function drawWaveform(options = {}) {
+  if (!peakCtx || !peakCanvas || !peakInfo?.waveform) return;
+  const { left, right } = peakInfo.waveform;
+  const width = peakCanvasWidth || peakCanvas.width;
+  const height = peakCanvasHeight || peakCanvas.height;
+  const halfHeight = height / 2;
+  const barWidth = Math.max(1, Math.floor(width / left.length));
+  const styles = getComputedStyle(document.documentElement);
+  const barColor = styles.getPropertyValue('--accent')?.trim() || '#6ba2ff';
+  const bg = styles.getPropertyValue('--panel')?.trim() || '#0b0f18';
+  const guideColor = styles.getPropertyValue('--text-muted')?.trim() || '#6c7484';
+  const { windowStart, windowEnd, progress } = options;
+  peakCtx.clearRect(0, 0, width, height);
+  peakCtx.fillStyle = bg;
+  peakCtx.fillRect(0, 0, width, height);
+
+  const drawChannel = (data, offsetY) => {
+    for (let i = 0; i < data.length; i += 1) {
+      const v = data[i];
+      const barHeight = v * (halfHeight - 6);
+      const x = i * barWidth;
+      const y = offsetY - barHeight;
+      peakCtx.fillStyle = barColor;
+      peakCtx.fillRect(x, y, barWidth - 1, barHeight * 2);
+    }
+  };
+
+  // snippet window overlay
+  if (Number.isFinite(windowStart) && Number.isFinite(windowEnd) && peakInfo?.duration) {
+    const startX = Math.max(0, Math.min(width, (windowStart / peakInfo.duration) * width));
+    const endX = Math.max(0, Math.min(width, (windowEnd / peakInfo.duration) * width));
+    peakCtx.fillStyle = `${barColor}22`;
+    peakCtx.fillRect(startX, 0, Math.max(2, endX - startX), height);
+  }
+
+  drawChannel(left, halfHeight / 1.1);
+  drawChannel(right, height - halfHeight / 1.1);
+
+  // center line guides
+  peakCtx.strokeStyle = `${guideColor}55`;
+  peakCtx.beginPath();
+  peakCtx.moveTo(0, halfHeight / 1.1);
+  peakCtx.lineTo(width, halfHeight / 1.1);
+  peakCtx.moveTo(0, height - halfHeight / 1.1);
+  peakCtx.lineTo(width, height - halfHeight / 1.1);
+  peakCtx.stroke();
+
+  // progress line
+  if (Number.isFinite(progress) && peakInfo?.duration) {
+    const x = Math.max(0, Math.min(width, (progress / peakInfo.duration) * width));
+    peakCtx.fillStyle = barColor;
+    peakCtx.fillRect(x, 0, 2, height);
+  }
+}
+
+function resizePeakCanvas() {
+  if (!peakCanvas || !peakCtx) return;
+  const rect = peakCanvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  peakDpr = dpr;
+  peakCanvasWidth = Math.max(320, Math.floor(rect.width));
+  peakCanvasHeight = Math.max(160, Math.floor(rect.height || 200));
+  peakCanvas.width = peakCanvasWidth * dpr;
+  peakCanvas.height = peakCanvasHeight * dpr;
+  peakCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (peakInfo?.waveform) {
+    drawWaveform({ windowStart: peakInfo.start, windowEnd: peakInfo.end });
+  }
 }
 
 const playlist = [];
@@ -60,6 +223,18 @@ let isInLead = false;
 let currentHowl = null;
 let progressTimer = null;
 let hasPlayedOnce = false;
+let audioCtx = null;
+let peakInfo = null;
+let peakStatusKey = 'peakIdle';
+let peakStatusParams = undefined;
+let spectrumTimer = null;
+let snippetSource = null;
+let analyser = null;
+let snippetGain = null;
+let snippetAnimation = null;
+let peakDpr = window.devicePixelRatio || 1;
+let peakCanvasWidth = 0;
+let peakCanvasHeight = 0;
 
 fileInput.addEventListener('change', (event) => {
   handleIncomingFiles(event.target.files);
@@ -187,6 +362,29 @@ if (themeSwitch) {
   }
   themeSwitch.addEventListener('change', () => applyTheme(themeSwitch.checked));
 }
+
+if (analyzePeakButton) {
+  analyzePeakButton.addEventListener('click', () => {
+    analyzePeakButton.disabled = true;
+    if (playPeakButton) playPeakButton.disabled = true;
+    resizePeakCanvas();
+    handlePeakAnalysis().finally(() => {
+      analyzePeakButton.disabled = false;
+    });
+  });
+}
+
+if (playPeakButton) {
+  playPeakButton.addEventListener('click', () => {
+    playPeakExcerpt();
+  });
+}
+
+window.addEventListener('resize', () => {
+  resizePeakCanvas();
+});
+
+setPeakStatus('peakIdle');
 
 function handleIncomingFiles(fileList) {
   const files = Array.from(fileList || []);
@@ -331,6 +529,10 @@ function deleteTrack(index) {
 
 function selectTrack(index, autoplay = false) {
   if (index < 0 || index >= playlist.length) return;
+  stopSnippet();
+  peakInfo = null;
+  if (playPeakButton) playPeakButton.disabled = true;
+  setPeakStatus('peakNeedAnalyze');
   clearGapState();
   currentIndex = index;
   const track = playlist[index];
@@ -339,6 +541,9 @@ function selectTrack(index, autoplay = false) {
   highlightActive();
   loadHowl(track);
   refreshPlayButton();
+  if (peakStatus) setPeakStatus('peakNeedAnalyze');
+  if (playPeakButton) playPeakButton.disabled = true;
+  clearSpectrum();
   if (autoplay) {
     if (!hasPlayedOnce) {
       const leadSeconds = getLeadSeconds();
@@ -411,6 +616,7 @@ function playNext() {
 }
 
 function stopPlayback() {
+  stopSnippet();
   clearGapState();
   clearLeadState();
   stopHowl();
@@ -420,6 +626,7 @@ function stopPlayback() {
   updateTrackProgressUI();
   updateGlobalProgress();
   refreshPlayButton();
+  setPeakStatus('peakIdle');
 }
 
 function clearGapState() {
@@ -733,11 +940,143 @@ function startLeadGap(seconds) {
   nowPlayingLabel.textContent = t('nowPlaying.lead', { seconds: seconds.toFixed(1) });
 }
 
+async function handlePeakAnalysis() {
+  if (currentIndex < 0 || !playlist[currentIndex]) {
+    setPeakStatus('peakNoTrack');
+    peakInfo = null;
+    return;
+  }
+  const track = playlist[currentIndex];
+  if (!track.file) {
+    setPeakStatus('peakNoTrack');
+    peakInfo = null;
+    return;
+  }
+  const ctx = ensureAudioContext();
+  if (!ctx) {
+    setPeakStatus('peakUnsupported');
+    return;
+  }
+  setPeakStatus('peakAnalyzing');
+  try {
+    const arrayBuffer = await track.file.arrayBuffer();
+    const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+    const waveform = computeWaveform(audioBuffer);
+    let maxVal = 0;
+    let maxIndex = 0;
+    for (let ch = 0; ch < audioBuffer.numberOfChannels; ch += 1) {
+      const data = audioBuffer.getChannelData(ch);
+      for (let i = 0; i < data.length; i += 1) {
+        const v = Math.abs(data[i]);
+        if (v > maxVal) {
+          maxVal = v;
+          maxIndex = i;
+        }
+      }
+    }
+    const peakTime = maxIndex / audioBuffer.sampleRate;
+    const windowSec = 15;
+    const start = Math.max(0, peakTime - windowSec / 2);
+    const end = Math.min(audioBuffer.duration, start + windowSec);
+    peakInfo = { trackId: track.id, time: peakTime, start, end, buffer: audioBuffer, waveform, duration: audioBuffer.duration };
+    drawWaveform();
+    if (playPeakButton) playPeakButton.disabled = false;
+    setPeakStatus('peakResult', {
+      time: formatSeconds(peakTime),
+      start: formatSeconds(start),
+      end: formatSeconds(end),
+    });
+  } catch (error) {
+    console.error('Peak analysis failed', error);
+    setPeakStatus('peakError');
+    peakInfo = null;
+    if (playPeakButton) playPeakButton.disabled = true;
+  }
+}
+
+function drawSpectrum() {
+  if (!analyser || !peakCtx || !peakCanvas) return;
+  const bufferLength = analyser.frequencyBinCount;
+  const dataArray = new Uint8Array(bufferLength);
+  const width = peakCanvas.width;
+  const height = peakCanvas.height;
+  const barWidth = Math.max(2, Math.floor((width / bufferLength) * 1.5));
+  const styles = getComputedStyle(document.documentElement);
+  const bg = styles.getPropertyValue('--panel')?.trim() || '#0b0f18';
+  const barColor = styles.getPropertyValue('--accent')?.trim() || '#6ba2ff';
+
+  const render = () => {
+    spectrumTimer = requestAnimationFrame(render);
+    analyser.getByteFrequencyData(dataArray);
+    peakCtx.fillStyle = bg;
+    peakCtx.fillRect(0, 0, width, height);
+    let x = 0;
+    for (let i = 0; i < bufferLength; i += 1) {
+      const v = dataArray[i] / 255;
+      const barHeight = v * (height - 4);
+      peakCtx.fillStyle = barColor;
+      peakCtx.fillRect(x, height - barHeight, barWidth, barHeight);
+      x += barWidth + 1;
+      if (x > width) break;
+    }
+  };
+  render();
+}
+
+function playPeakExcerpt() {
+  if (!peakInfo || !playlist[currentIndex] || playlist[currentIndex].id !== peakInfo.trackId) {
+    setPeakStatus('peakTrackChanged');
+    if (playPeakButton) playPeakButton.disabled = true;
+    return;
+  }
+  const ctx = ensureAudioContext();
+  if (!ctx) {
+    setPeakStatus('peakUnsupported');
+    return;
+  }
+  stopSnippet();
+  if (currentHowl?.playing?.()) {
+    pauseCurrent();
+  }
+  analyser = ctx.createAnalyser();
+  analyser.fftSize = 1024;
+  analyser.smoothingTimeConstant = 0.7;
+  snippetGain = ctx.createGain();
+  snippetGain.gain.value = 1;
+  snippetSource = ctx.createBufferSource();
+  snippetSource.buffer = peakInfo.buffer;
+  snippetSource.connect(analyser);
+  analyser.connect(snippetGain);
+  snippetGain.connect(ctx.destination);
+  const duration = Math.min(15, peakInfo.buffer.duration - peakInfo.start);
+  snippetSource.start(0, peakInfo.start, duration);
+  snippetSource.onended = () => {
+    stopSnippet();
+    setPeakStatus('peakDone');
+  };
+  setPeakStatus('peakPlaying', {
+    start: formatSeconds(peakInfo.start),
+    end: formatSeconds(peakInfo.start + duration),
+  });
+  drawWaveform({ windowStart: peakInfo.start, windowEnd: peakInfo.start + duration, progress: peakInfo.start });
+  const startedAt = ctx.currentTime;
+  const animate = () => {
+    const elapsed = ctx.currentTime - startedAt;
+    const current = peakInfo.start + Math.min(duration, elapsed);
+    drawWaveform({ windowStart: peakInfo.start, windowEnd: peakInfo.start + duration, progress: current });
+    if (elapsed < duration && snippetSource) {
+      snippetAnimation = requestAnimationFrame(animate);
+    }
+  };
+  animate();
+}
+
 window.onLanguageChanged = () => {
   renderPlaylist();
   updateTotalDuration();
   refreshPlayButton();
   updateLangMenuHighlight();
+  setPeakStatus(peakStatusKey, peakStatusParams);
   updateThemeLabel(document.documentElement.classList.contains('theme-dark'));
   if (currentIndex < 0) {
     nowPlayingLabel.textContent = t('nowPlaying.idle');

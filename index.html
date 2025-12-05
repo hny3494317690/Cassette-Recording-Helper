@@ -102,6 +102,18 @@
           <span id="gapProgressText" class="progress-text">0s</span>
         </div>
       </section>
+
+      <section class="panel peak-panel">
+        <div class="panel-header">
+          <h2 data-i18n="levelCheckTitle">Level check</h2>
+          <div class="peak-actions">
+            <button id="analyzePeak" type="button" data-i18n="analyzePeak">Analyze peak</button>
+            <button id="playPeakSnippet" type="button" data-i18n="playPeakSnippet" disabled>Play peak excerpt</button>
+          </div>
+        </div>
+        <p id="peakStatus" class="peak-status" data-i18n="peakIdle">Select a track and analyze to find the loudest spot.</p>
+        <canvas id="peakCanvas" width="640" height="160" aria-label="Spectrum visualization"></canvas>
+      </section>
     </main>
 
     <template id="playlistItemTemplate">

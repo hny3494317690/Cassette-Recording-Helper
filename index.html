@@ -7,6 +7,7 @@
     <link rel="icon" type="image/png" href="favicon.png" />
     <script src="https://cdn.jsdelivr.net/npm/howler@2.2.4/dist/howler.core.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/wavesurfer.js@7.7.14/dist/wavesurfer.min.js"></script>
     <link rel="stylesheet" href="style.css">
   </head>
   <body>
@@ -112,7 +113,7 @@
           </div>
         </div>
         <p id="peakStatus" class="peak-status" data-i18n="peakIdle">Select a track and analyze to find the loudest spot.</p>
-        <canvas id="peakCanvas" width="640" height="160" aria-label="Spectrum visualization"></canvas>
+        <div id="peakWaveform" class="peak-waveform" aria-label="Waveform visualization"></div>
       </section>
     </main>
 

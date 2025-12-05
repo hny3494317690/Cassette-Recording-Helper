@@ -24,8 +24,8 @@ const themeLabel = document.querySelector('.theme-emoji'); // holds sun/moon emo
 const analyzePeakButton = document.getElementById('analyzePeak');
 const playPeakButton = document.getElementById('playPeakSnippet');
 const peakStatus = document.getElementById('peakStatus');
-const peakCanvas = document.getElementById('peakCanvas');
-const peakCtx = peakCanvas ? peakCanvas.getContext('2d') : null;
+const peakWaveform = document.getElementById('peakWaveform');
+const peakCtx = null;
 
 function updateThemeLabel(useDark) {
   if (!themeLabel) return;
@@ -85,8 +85,10 @@ function clearSpectrum() {
     cancelAnimationFrame(snippetAnimation);
     snippetAnimation = null;
   }
-  if (peakCtx && peakCanvas) {
-    peakCtx.clearRect(0, 0, peakCanvas.width, peakCanvas.height);
+  if (peakSurfer) {
+    peakSurfer.destroy();
+    peakSurfer = null;
+    peakSurferReady = false;
   }
 }
 
@@ -111,98 +113,19 @@ function stopSnippet() {
   clearSpectrum();
 }
 
-function computeWaveform(buffer) {
-  const width = peakCanvasWidth || peakCanvas?.width || 640;
-  const buckets = Math.max(64, Math.min(1024, Math.floor(width)));
-  const left = new Float32Array(buckets);
-  const right = new Float32Array(buckets);
-  const channels = Math.min(2, buffer.numberOfChannels);
-  for (let ch = 0; ch < channels; ch += 1) {
-    const data = buffer.getChannelData(ch);
-    const bucketSize = data.length / buckets;
-    for (let i = 0; i < buckets; i += 1) {
-      const start = Math.floor(i * bucketSize);
-      const end = Math.floor(start + bucketSize);
-      let peak = 0;
-      for (let j = start; j < end && j < data.length; j += 1) {
-        const v = Math.abs(data[j]);
-        if (v > peak) peak = v;
-      }
-      if (ch === 0) left[i] = peak;
-      else right[i] = peak;
-    }
-  }
-  if (channels === 1) right.set(left);
-  return { left, right, buckets };
-}
-
-function drawWaveform(options = {}) {
-  if (!peakCtx || !peakCanvas || !peakInfo?.waveform) return;
-  const { left, right } = peakInfo.waveform;
-  const width = peakCanvasWidth || peakCanvas.width;
-  const height = peakCanvasHeight || peakCanvas.height;
-  const halfHeight = height / 2;
-  const barWidth = Math.max(1, Math.floor(width / left.length));
-  const styles = getComputedStyle(document.documentElement);
-  const barColor = styles.getPropertyValue('--accent')?.trim() || '#6ba2ff';
-  const bg = styles.getPropertyValue('--panel')?.trim() || '#0b0f18';
-  const guideColor = styles.getPropertyValue('--text-muted')?.trim() || '#6c7484';
-  const { windowStart, windowEnd, progress } = options;
-  peakCtx.clearRect(0, 0, width, height);
-  peakCtx.fillStyle = bg;
-  peakCtx.fillRect(0, 0, width, height);
-
-  const drawChannel = (data, offsetY) => {
-    for (let i = 0; i < data.length; i += 1) {
-      const v = data[i];
-      const barHeight = v * (halfHeight - 6);
-      const x = i * barWidth;
-      const y = offsetY - barHeight;
-      peakCtx.fillStyle = barColor;
-      peakCtx.fillRect(x, y, barWidth - 1, barHeight * 2);
-    }
-  };
-
-  // snippet window overlay
-  if (Number.isFinite(windowStart) && Number.isFinite(windowEnd) && peakInfo?.duration) {
-    const startX = Math.max(0, Math.min(width, (windowStart / peakInfo.duration) * width));
-    const endX = Math.max(0, Math.min(width, (windowEnd / peakInfo.duration) * width));
-    peakCtx.fillStyle = `${barColor}22`;
-    peakCtx.fillRect(startX, 0, Math.max(2, endX - startX), height);
-  }
-
-  drawChannel(left, halfHeight / 1.1);
-  drawChannel(right, height - halfHeight / 1.1);
-
-  // center line guides
-  peakCtx.strokeStyle = `${guideColor}55`;
-  peakCtx.beginPath();
-  peakCtx.moveTo(0, halfHeight / 1.1);
-  peakCtx.lineTo(width, halfHeight / 1.1);
-  peakCtx.moveTo(0, height - halfHeight / 1.1);
-  peakCtx.lineTo(width, height - halfHeight / 1.1);
-  peakCtx.stroke();
-
-  // progress line
-  if (Number.isFinite(progress) && peakInfo?.duration) {
-    const x = Math.max(0, Math.min(width, (progress / peakInfo.duration) * width));
-    peakCtx.fillStyle = barColor;
-    peakCtx.fillRect(x, 0, 2, height);
-  }
-}
-
 function resizePeakCanvas() {
-  if (!peakCanvas || !peakCtx) return;
-  const rect = peakCanvas.getBoundingClientRect();
+  const rect = peakWaveform?.getBoundingClientRect();
+  if (!rect) return;
   const dpr = window.devicePixelRatio || 1;
   peakDpr = dpr;
   peakCanvasWidth = Math.max(320, Math.floor(rect.width));
   peakCanvasHeight = Math.max(160, Math.floor(rect.height || 200));
-  peakCanvas.width = peakCanvasWidth * dpr;
-  peakCanvas.height = peakCanvasHeight * dpr;
-  peakCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  if (peakInfo?.waveform) {
-    drawWaveform({ windowStart: peakInfo.start, windowEnd: peakInfo.end });
+  if (peakSurfer?.drawer) {
+    peakSurfer.setOptions({ height: peakCanvasHeight });
+    peakSurfer.drawer.containerWidth = peakCanvasWidth;
+    peakSurfer.drawer.containerHeight = peakCanvasHeight;
+    peakSurfer.drawer.updateSize();
+    peakSurfer.drawBuffer();
   }
 }
 
@@ -235,6 +158,8 @@ let snippetAnimation = null;
 let peakDpr = window.devicePixelRatio || 1;
 let peakCanvasWidth = 0;
 let peakCanvasHeight = 0;
+let peakSurfer = null;
+let peakSurferReady = false;
 
 fileInput.addEventListener('change', (event) => {
   handleIncomingFiles(event.target.files);
@@ -961,7 +886,6 @@ async function handlePeakAnalysis() {
   try {
     const arrayBuffer = await track.file.arrayBuffer();
     const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
-    const waveform = computeWaveform(audioBuffer);
     let maxVal = 0;
     let maxIndex = 0;
     for (let ch = 0; ch < audioBuffer.numberOfChannels; ch += 1) {
@@ -978,8 +902,47 @@ async function handlePeakAnalysis() {
     const windowSec = 15;
     const start = Math.max(0, peakTime - windowSec / 2);
     const end = Math.min(audioBuffer.duration, start + windowSec);
-    peakInfo = { trackId: track.id, time: peakTime, start, end, buffer: audioBuffer, waveform, duration: audioBuffer.duration };
-    drawWaveform();
+    peakInfo = { trackId: track.id, time: peakTime, start, end, buffer: audioBuffer, duration: audioBuffer.duration };
+    if (window.WaveSurfer && peakWaveform) {
+      if (peakSurfer) {
+        peakSurfer.destroy();
+        peakSurfer = null;
+        peakSurferReady = false;
+      }
+      const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent')?.trim() || '#6ba2ff';
+      peakSurferReady = false;
+      peakSurfer = WaveSurfer.create({
+        container: peakWaveform,
+        waveColor: accent,
+        progressColor: '#3fbf7f',
+        height: peakCanvasHeight || 200,
+        barWidth: 2,
+        barHeight: 0.3,
+        barMinHeight: 1,
+        barGap: 3,
+        barAlign: 'center',
+        barRadius: 2,
+        responsive: true,
+        normalize: false,
+        interact: false,
+        dragToSeek: false,
+        cursorWidth: 0,
+        autoCenter: false,
+        splitChannels: true,
+        splitChannelsOptions: {
+          overlay: false,
+          relativeNormalization: false,
+          channelGap: 12,
+        },
+      });
+      peakSurfer.once('ready', () => {
+        peakSurferReady = true;
+      });
+      peakSurfer.once('error', () => {
+        peakSurferReady = false;
+      });
+      peakSurfer.load(track.url);
+    }
     if (playPeakButton) playPeakButton.disabled = false;
     setPeakStatus('peakResult', {
       time: formatSeconds(peakTime),
@@ -1029,46 +992,58 @@ function playPeakExcerpt() {
     if (playPeakButton) playPeakButton.disabled = true;
     return;
   }
-  const ctx = ensureAudioContext();
-  if (!ctx) {
-    setPeakStatus('peakUnsupported');
-    return;
-  }
-  stopSnippet();
   if (currentHowl?.playing?.()) {
     pauseCurrent();
   }
-  analyser = ctx.createAnalyser();
-  analyser.fftSize = 1024;
-  analyser.smoothingTimeConstant = 0.7;
-  snippetGain = ctx.createGain();
-  snippetGain.gain.value = 1;
-  snippetSource = ctx.createBufferSource();
-  snippetSource.buffer = peakInfo.buffer;
-  snippetSource.connect(analyser);
-  analyser.connect(snippetGain);
-  snippetGain.connect(ctx.destination);
-  const duration = Math.min(15, peakInfo.buffer.duration - peakInfo.start);
-  snippetSource.start(0, peakInfo.start, duration);
-  snippetSource.onended = () => {
-    stopSnippet();
-    setPeakStatus('peakDone');
-  };
-  setPeakStatus('peakPlaying', {
-    start: formatSeconds(peakInfo.start),
-    end: formatSeconds(peakInfo.start + duration),
-  });
-  drawWaveform({ windowStart: peakInfo.start, windowEnd: peakInfo.start + duration, progress: peakInfo.start });
-  const startedAt = ctx.currentTime;
-  const animate = () => {
-    const elapsed = ctx.currentTime - startedAt;
-    const current = peakInfo.start + Math.min(duration, elapsed);
-    drawWaveform({ windowStart: peakInfo.start, windowEnd: peakInfo.start + duration, progress: current });
-    if (elapsed < duration && snippetSource) {
-      snippetAnimation = requestAnimationFrame(animate);
+  const totalDuration = peakInfo.buffer.duration;
+  const start = Math.max(0, Math.min(totalDuration - 0.05, peakInfo.start));
+  const duration = Math.min(15, Math.max(0.05, totalDuration - start));
+  const end = Math.min(totalDuration, start + duration);
+  if (peakSurfer) {
+    const playWithSurfer = () => {
+      if (!peakSurfer) return;
+      const surferDuration = peakSurfer.getDuration ? peakSurfer.getDuration() : totalDuration;
+      const safeStart = Math.max(0, Math.min(surferDuration - 0.01, start));
+      const safeEnd = Math.min(surferDuration, end);
+      peakSurfer.stop();
+      peakSurfer.setTime(safeStart);
+      peakSurfer.play(safeStart, safeEnd);
+      peakSurfer.once('finish', () => {
+        setPeakStatus('peakDone');
+      });
+    };
+    if (peakSurferReady) {
+      playWithSurfer();
+    } else {
+      peakSurfer.once('ready', playWithSurfer);
     }
-  };
-  animate();
+  } else {
+    const ctx = ensureAudioContext();
+    if (!ctx) {
+      setPeakStatus('peakUnsupported');
+      return;
+    }
+    stopSnippet();
+    analyser = ctx.createAnalyser();
+    analyser.fftSize = 1024;
+    analyser.smoothingTimeConstant = 0.7;
+    snippetGain = ctx.createGain();
+    snippetGain.gain.value = 1;
+    snippetSource = ctx.createBufferSource();
+    snippetSource.buffer = peakInfo.buffer;
+    snippetSource.connect(analyser);
+    analyser.connect(snippetGain);
+    snippetGain.connect(ctx.destination);
+    snippetSource.start(0, start, duration);
+    snippetSource.onended = () => {
+      stopSnippet();
+      setPeakStatus('peakDone');
+    };
+  }
+  setPeakStatus('peakPlaying', {
+    start: formatSeconds(start),
+    end: formatSeconds(end),
+  });
 }
 
 window.onLanguageChanged = () => {

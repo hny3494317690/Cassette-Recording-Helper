@@ -145,6 +145,30 @@
   background: #ffecec;
 }
 
+:root.theme-dark .progress {
+  background: #262d41;
+}
+
+:root.theme-dark .drag-handle {
+  background: rgba(107, 162, 255, 0.12);
+  border-color: rgba(107, 162, 255, 0.35);
+}
+
+:root.theme-dark .drag-handle.disabled {
+  color: #7c86a6;
+  border-color: #3a425a;
+  background: #1f2537;
+}
+
+:root.theme-dark .track-delete {
+  color: #ffb2b2;
+  border-color: #834040;
+}
+
+:root.theme-dark .track-delete:hover {
+  background: rgba(255, 140, 140, 0.12);
+}
+
 .progress-row {
   display: flex;
   align-items: center;
@@ -200,28 +224,36 @@
   opacity: 1;
 }
 
-:root.theme-dark .progress {
-  background: #262d41;
+.peak-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-:root.theme-dark .drag-handle {
-  background: rgba(107, 162, 255, 0.12);
-  border-color: rgba(107, 162, 255, 0.35);
+.peak-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-:root.theme-dark .drag-handle.disabled {
-  color: #7c86a6;
-  border-color: #3a425a;
-  background: #1f2537;
+.peak-status {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.95rem;
 }
 
-:root.theme-dark .track-delete {
-  color: #ffb2b2;
-  border-color: #834040;
+.peak-waveform {
+  width: 100%;
+  height: 200px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #0c101b;
+  display: block;
+  overflow: hidden;
 }
 
-:root.theme-dark .track-delete:hover {
-  background: rgba(255, 140, 140, 0.12);
+:root.theme-dark .peak-waveform {
+  background: #0b0f18;
 }
 
 .playlist-actions {

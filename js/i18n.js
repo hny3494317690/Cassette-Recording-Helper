@@ -74,7 +74,12 @@ function getLanguage() {
 
 document.addEventListener('DOMContentLoaded', () => {
   if (document.documentElement) document.documentElement.lang = currentLang;
-  ensureTranslations(currentLang).then(applyTranslations);
+  ensureTranslations(currentLang).then(() => {
+    applyTranslations();
+    if (typeof window.onLanguageChanged === 'function') {
+      window.onLanguageChanged(currentLang);
+    }
+  });
 });
 
 function detectBrowserLanguage() {

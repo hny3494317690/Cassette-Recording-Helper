@@ -28,7 +28,7 @@ python3 -m http.server 8000
 
 ### Structure
 - `index.html` — main UI.
-- `style.css`, `styles/` — base/components styling.
+- `css/style.css`, `css/` — base/components styling.
 - `js/state.js` — shared DOM refs and app state.
 - `js/theme-lang.js` — theme toggle + language menu helpers.
 - `js/player.js` — core playback controls, lead/gap handling.
@@ -39,7 +39,7 @@ python3 -m http.server 8000
 - `js/i18n.js` — language loader for `lang/*.json`.
 - `js/utils.js` — generic helpers (duration, ids, input normalize).
 - `lang/` — translations (zh-CN, en, ja).
-- `lang-icon.svg`, `favicon.png` — assets.
+- `images/lang-icon.svg`, `images/favicon.png` — assets.
 
 ### Notes
 - Playback depends on browser-supported formats; some uncommon formats may not work.
@@ -70,7 +70,7 @@ python3 -m http.server 8000
 
 ### 结构
 - `index.html`：主界面。
-- `style.css`、`styles/`：样式。
+- `css/style.css`、`css/`：样式。
 - `js/state.js`：共享 DOM 引用和状态。
 - `js/theme-lang.js`：主题切换与语言菜单。
 - `js/player.js`：播放控制、前导/间隔逻辑。
@@ -81,7 +81,7 @@ python3 -m http.server 8000
 - `js/i18n.js`：加载 `lang/*.json` 语言。
 - `js/utils.js`：通用工具（时长、ID、输入规范）。
 - `lang/`：翻译文件（中/英/日）。
-- `lang-icon.svg`、`favicon.png`：图标。
+- `images/lang-icon.svg`、`images/favicon.png`：图标。
 
 ### 说明
 - 播放依赖浏览器支持的格式，部分特殊格式可能无法播放。
@@ -109,7 +109,7 @@ python3 -m http.server 8000
 
 ### 構成
 - `index.html`：メイン UI。
-- `style.css`、`styles/`：スタイル一式。
+- `css/style.css`、`css/`：スタイル一式。
 - `js/state.js`：共有 DOM 参照と状態。
 - `js/theme-lang.js`：テーマ切替と言語メニュー。
 - `js/player.js`：再生コントロール、頭出し/曲間処理。
@@ -120,7 +120,7 @@ python3 -m http.server 8000
 - `js/i18n.js`：`lang/*.json` 読み込み。
 - `js/utils.js`：汎用ヘルパー（時間、ID、入力正規化）。
 - `lang/`：翻訳ファイル（中/英/日）。
-- `lang-icon.svg`、`favicon.png`：アイコン。
+- `images/lang-icon.svg`、`images/favicon.png`：アイコン。
 
 ### 注意
 - 再生はブラウザ対応の形式に依存し、一部の特殊形式は再生できない場合があります。

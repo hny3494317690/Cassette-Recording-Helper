@@ -21,6 +21,21 @@ let updateLangMenuHighlight = () => {};
 const lockToggle = document.getElementById('lockReorder');
 const themeSwitch = document.getElementById('themeSwitch');
 const themeLabel = document.querySelector('.theme-emoji'); // holds sun/moon emoji
+const analyzePeakButton = document.getElementById('analyzePeak');
+const playPeakButton = document.getElementById('playPeakSnippet');
+const peakStatus = document.getElementById('peakStatus');
+const peakWaveform = document.getElementById('peakWaveform');
+const peakCtx = null;
+const peakCurrentTimeEl = null;
+const peakTotalTimeEl = null;
+const peakProgressFill = null;
+const peakMarker = (() => {
+  if (!peakWaveform) return null;
+  const marker = document.createElement('div');
+  marker.className = 'peak-marker';
+  peakWaveform.appendChild(marker);
+  return marker;
+})();
 
 function updateThemeLabel(useDark) {
   if (!themeLabel) return;
@@ -38,9 +53,116 @@ function applyTheme(useDark, persist = true) {
   if (themeSwitch) themeSwitch.checked = useDark;
   updateThemeLabel(useDark);
 }
+
+function formatSeconds(value) {
+  if (!Number.isFinite(value)) return '0:00';
+  const minutes = Math.floor(value / 60);
+  const seconds = (value % 60).toFixed(1).padStart(4, '0');
+  return `${minutes}:${seconds}`;
+}
+
 function applyDragLockState() {
   const canDrag = !lockToggle?.checked;
   toggleSortable(canDrag);
+}
+
+function ensureAudioContext() {
+  if (!audioCtx) {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    audioCtx = new Ctx();
+  }
+  return audioCtx;
+}
+
+function setPeakStatus(key, params) {
+  if (!peakStatus) return;
+  if (typeof key === 'string') {
+    peakStatusKey = key;
+    peakStatusParams = params;
+    peakStatus.textContent = t(key, params);
+  } else {
+    peakStatus.textContent = key;
+  }
+}
+
+function updatePeakTimeUI(current = 0, total = 0) {
+  if (peakCurrentTimeEl) peakCurrentTimeEl.textContent = formatSeconds(current).replace(/\.0$/, '');
+  if (peakTotalTimeEl) peakTotalTimeEl.textContent = formatSeconds(total || 0).replace(/\.0$/, '');
+  if (peakProgressFill) {
+    const pct = total > 0 ? Math.min(1, Math.max(0, current / total)) * 100 : 0;
+    peakProgressFill.style.width = `${pct}%`;
+  }
+}
+
+function updatePeakMarker(time = null, total = 0) {
+  if (!peakMarker) return;
+  if (!Number.isFinite(time) || !total) {
+    peakMarker.style.left = '-9999px';
+    return;
+  }
+  const pct = Math.min(1, Math.max(0, time / total)) * 100;
+  peakMarker.style.left = `${pct}%`;
+}
+
+function clearSpectrum() {
+  if (spectrumTimer) {
+    cancelAnimationFrame(spectrumTimer);
+    spectrumTimer = null;
+  }
+  if (snippetAnimation) {
+    cancelAnimationFrame(snippetAnimation);
+    snippetAnimation = null;
+  }
+  if (peakSurferTimeHandler && peakSurfer) {
+    peakSurfer.un('timeupdate', peakSurferTimeHandler);
+  }
+  peakSurferTimeHandler = null;
+  peakTargetEnd = null;
+  if (peakSurfer) {
+    peakSurfer.destroy();
+    peakSurfer = null;
+    peakSurferReady = false;
+  }
+  updatePeakTimeUI(0, 0);
+  updatePeakMarker(null, 0);
+}
+
+function stopSnippet() {
+  if (snippetSource) {
+    try {
+      snippetSource.stop();
+    } catch (e) {
+      // ignore
+    }
+    snippetSource.disconnect();
+    snippetSource = null;
+  }
+  if (snippetGain) {
+    snippetGain.disconnect();
+    snippetGain = null;
+  }
+  if (analyser) {
+    analyser.disconnect();
+    analyser = null;
+  }
+  clearSpectrum();
+}
+
+function resizePeakCanvas() {
+  const rect = peakWaveform?.getBoundingClientRect();
+  if (!rect) return;
+  const dpr = window.devicePixelRatio || 1;
+  peakDpr = dpr;
+  peakCanvasWidth = Math.max(320, Math.floor(rect.width));
+  peakCanvasHeight = Math.max(160, Math.floor(rect.height || 200));
+  if (peakSurfer?.drawer) {
+    peakSurfer.setOptions({ height: peakCanvasHeight });
+    peakSurfer.drawer.containerWidth = peakCanvasWidth;
+    peakSurfer.drawer.containerHeight = peakCanvasHeight;
+    peakSurfer.drawer.updateSize();
+    peakSurfer.drawBuffer();
+  }
 }
 
 const playlist = [];
@@ -60,6 +182,22 @@ let isInLead = false;
 let currentHowl = null;
 let progressTimer = null;
 let hasPlayedOnce = false;
+let audioCtx = null;
+let peakInfo = null;
+let peakStatusKey = 'peakIdle';
+let peakStatusParams = undefined;
+let spectrumTimer = null;
+let snippetSource = null;
+let analyser = null;
+let snippetGain = null;
+let snippetAnimation = null;
+let peakDpr = window.devicePixelRatio || 1;
+let peakCanvasWidth = 0;
+let peakCanvasHeight = 0;
+let peakSurfer = null;
+let peakSurferReady = false;
+let peakSurferTimeHandler = null;
+let peakTargetEnd = null;
 
 fileInput.addEventListener('change', (event) => {
   handleIncomingFiles(event.target.files);
@@ -187,6 +325,29 @@ if (themeSwitch) {
   }
   themeSwitch.addEventListener('change', () => applyTheme(themeSwitch.checked));
 }
+
+if (analyzePeakButton) {
+  analyzePeakButton.addEventListener('click', () => {
+    analyzePeakButton.disabled = true;
+    if (playPeakButton) playPeakButton.disabled = true;
+    resizePeakCanvas();
+    handlePeakAnalysis().finally(() => {
+      analyzePeakButton.disabled = false;
+    });
+  });
+}
+
+if (playPeakButton) {
+  playPeakButton.addEventListener('click', () => {
+    playPeakExcerpt();
+  });
+}
+
+window.addEventListener('resize', () => {
+  resizePeakCanvas();
+});
+
+setPeakStatus('peakIdle');
 
 function handleIncomingFiles(fileList) {
   const files = Array.from(fileList || []);
@@ -331,6 +492,10 @@ function deleteTrack(index) {
 
 function selectTrack(index, autoplay = false) {
   if (index < 0 || index >= playlist.length) return;
+  stopSnippet();
+  peakInfo = null;
+  if (playPeakButton) playPeakButton.disabled = true;
+  setPeakStatus('peakNeedAnalyze');
   clearGapState();
   currentIndex = index;
   const track = playlist[index];
@@ -339,6 +504,9 @@ function selectTrack(index, autoplay = false) {
   highlightActive();
   loadHowl(track);
   refreshPlayButton();
+  if (peakStatus) setPeakStatus('peakNeedAnalyze');
+  if (playPeakButton) playPeakButton.disabled = true;
+  clearSpectrum();
   if (autoplay) {
     if (!hasPlayedOnce) {
       const leadSeconds = getLeadSeconds();
@@ -411,6 +579,7 @@ function playNext() {
 }
 
 function stopPlayback() {
+  stopSnippet();
   clearGapState();
   clearLeadState();
   stopHowl();
@@ -420,6 +589,7 @@ function stopPlayback() {
   updateTrackProgressUI();
   updateGlobalProgress();
   refreshPlayButton();
+  setPeakStatus('peakIdle');
 }
 
 function clearGapState() {
@@ -733,11 +903,238 @@ function startLeadGap(seconds) {
   nowPlayingLabel.textContent = t('nowPlaying.lead', { seconds: seconds.toFixed(1) });
 }
 
+async function handlePeakAnalysis() {
+  if (currentIndex < 0 || !playlist[currentIndex]) {
+    setPeakStatus('peakNoTrack');
+    peakInfo = null;
+    return;
+  }
+  const track = playlist[currentIndex];
+  if (!track.file) {
+    setPeakStatus('peakNoTrack');
+    peakInfo = null;
+    return;
+  }
+  const ctx = ensureAudioContext();
+  if (!ctx) {
+    setPeakStatus('peakUnsupported');
+    return;
+  }
+  setPeakStatus('peakAnalyzing');
+  try {
+    const arrayBuffer = await track.file.arrayBuffer();
+    const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+    let maxVal = 0;
+    let maxIndex = 0;
+    for (let ch = 0; ch < audioBuffer.numberOfChannels; ch += 1) {
+      const data = audioBuffer.getChannelData(ch);
+      for (let i = 0; i < data.length; i += 1) {
+        const v = Math.abs(data[i]);
+        if (v > maxVal) {
+          maxVal = v;
+          maxIndex = i;
+        }
+      }
+    }
+    const peakTime = maxIndex / audioBuffer.sampleRate;
+    const windowSec = 15;
+    const start = Math.max(0, peakTime - windowSec / 2);
+    const end = Math.min(audioBuffer.duration, start + windowSec);
+    peakInfo = { trackId: track.id, time: peakTime, start, end, buffer: audioBuffer, duration: audioBuffer.duration };
+    updatePeakTimeUI(start, audioBuffer.duration);
+    updatePeakMarker(peakTime, audioBuffer.duration);
+    if (window.WaveSurfer && peakWaveform) {
+      if (peakSurfer) {
+        peakSurfer.destroy();
+        peakSurfer = null;
+        peakSurferReady = false;
+      }
+      const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent')?.trim() || '#6ba2ff';
+      const height = peakCanvasHeight || 200;
+      peakSurferReady = false;
+      const gradients = window.buildPeakGradients ? window.buildPeakGradients(height) : null;
+      if (window.createPeakSurfer) {
+        peakSurfer = window.createPeakSurfer({ container: peakWaveform, height, accent });
+      } else {
+        peakSurfer = WaveSurfer.create({
+          container: peakWaveform,
+          waveColor: gradients?.waveColor || accent,
+          progressColor: gradients?.progressColor || 'rgba(80, 200, 120, 0.9)',
+          height,
+          responsive: true,
+          normalize: false,
+          interact: false,
+          dragToSeek: false,
+          cursorColor: '#57BAB6',
+          cursorWidth: 3,
+          minPxPerSec: 0,
+          fillParent: true,
+          hideScrollbar: true,
+          autoCenter: false,
+          splitChannels: true,
+          splitChannelsOptions: {
+            overlay: false,
+            relativeNormalization: false,
+            channelGap: 0,
+          },
+        });
+      }
+      peakSurfer.once('ready', () => {
+        peakSurferReady = true;
+        const surferDuration = peakSurfer.getDuration ? peakSurfer.getDuration() : track.duration || audioBuffer.duration || 1;
+        const startPos = peakInfo?.start || 0;
+        if (peakSurferTimeHandler && peakSurfer) {
+          peakSurfer.un('timeupdate', peakSurferTimeHandler);
+        }
+        peakSurferTimeHandler = (time) => {
+          updatePeakTimeUI(time, surferDuration);
+          updatePeakMarker(peakInfo?.time, surferDuration);
+          if (peakTargetEnd != null && time >= peakTargetEnd - 0.02) {
+            const endPoint = peakTargetEnd;
+            peakTargetEnd = null;
+            peakSurfer.pause();
+            if (typeof endPoint === 'number') peakSurfer.setTime(endPoint);
+            setPeakStatus('peakDone');
+          }
+        };
+        peakSurfer.on('timeupdate', peakSurferTimeHandler);
+        updatePeakTimeUI(startPos, surferDuration);
+        if (surferDuration > 0) {
+          const ratio = Math.min(1, Math.max(0, startPos / surferDuration));
+          if (typeof peakSurfer.seekTo === 'function') {
+            peakSurfer.seekTo(ratio);
+          } else if (typeof peakSurfer.setTime === 'function') {
+            peakSurfer.setTime(startPos);
+          }
+        }
+      });
+      peakSurfer.once('error', () => {
+        peakSurferReady = false;
+      });
+      peakSurfer.load(track.url);
+    }
+    if (playPeakButton) playPeakButton.disabled = false;
+    setPeakStatus('peakResult', {
+      time: formatSeconds(peakTime),
+      start: formatSeconds(start),
+      end: formatSeconds(end),
+    });
+  } catch (error) {
+    console.error('Peak analysis failed', error);
+    setPeakStatus('peakError');
+    peakInfo = null;
+    if (playPeakButton) playPeakButton.disabled = true;
+  }
+}
+
+function drawSpectrum() {
+  if (!analyser || !peakCtx || !peakCanvas) return;
+  const bufferLength = analyser.frequencyBinCount;
+  const dataArray = new Uint8Array(bufferLength);
+  const width = peakCanvas.width;
+  const height = peakCanvas.height;
+  const barWidth = Math.max(2, Math.floor((width / bufferLength) * 1.5));
+  const styles = getComputedStyle(document.documentElement);
+  const bg = styles.getPropertyValue('--panel')?.trim() || '#0b0f18';
+  const barColor = styles.getPropertyValue('--accent')?.trim() || '#6ba2ff';
+
+  const render = () => {
+    spectrumTimer = requestAnimationFrame(render);
+    analyser.getByteFrequencyData(dataArray);
+    peakCtx.fillStyle = bg;
+    peakCtx.fillRect(0, 0, width, height);
+    let x = 0;
+    for (let i = 0; i < bufferLength; i += 1) {
+      const v = dataArray[i] / 255;
+      const barHeight = v * (height - 4);
+      peakCtx.fillStyle = barColor;
+      peakCtx.fillRect(x, height - barHeight, barWidth, barHeight);
+      x += barWidth + 1;
+      if (x > width) break;
+    }
+  };
+  render();
+}
+
+function playPeakExcerpt() {
+  if (!peakInfo || !playlist[currentIndex] || playlist[currentIndex].id !== peakInfo.trackId) {
+    setPeakStatus('peakTrackChanged');
+    if (playPeakButton) playPeakButton.disabled = true;
+    return;
+  }
+  if (currentHowl?.playing?.()) {
+    pauseCurrent();
+  }
+  const totalDuration = peakInfo.buffer.duration;
+  const start = Math.max(0, Math.min(totalDuration - 0.05, peakInfo.start));
+  const duration = Math.min(15, Math.max(0.05, totalDuration - start));
+  const end = Math.min(totalDuration, start + duration);
+  peakTargetEnd = null;
+  if (peakSurfer) {
+    const playWithSurfer = () => {
+      if (!peakSurfer) return;
+      const surferDuration = peakSurfer.getDuration ? peakSurfer.getDuration() : totalDuration;
+      const safeStart = Math.max(0, Math.min(surferDuration - 0.01, start));
+      const safeEnd = Math.min(surferDuration, end);
+      peakTargetEnd = safeEnd;
+      peakSurfer.stop();
+      peakSurfer.setTime(safeStart);
+      updatePeakTimeUI(safeStart, surferDuration);
+      peakSurfer.play(safeStart, safeEnd);
+      peakSurfer.once('finish', () => {
+        setPeakStatus('peakDone');
+      });
+    };
+    if (peakSurferReady) {
+      playWithSurfer();
+    } else {
+      peakSurfer.once('ready', playWithSurfer);
+    }
+  } else {
+    const ctx = ensureAudioContext();
+    if (!ctx) {
+      setPeakStatus('peakUnsupported');
+      return;
+    }
+    stopSnippet();
+    analyser = ctx.createAnalyser();
+    analyser.fftSize = 1024;
+    analyser.smoothingTimeConstant = 0.7;
+    snippetGain = ctx.createGain();
+    snippetGain.gain.value = 1;
+    snippetSource = ctx.createBufferSource();
+    snippetSource.buffer = peakInfo.buffer;
+    snippetSource.connect(analyser);
+    analyser.connect(snippetGain);
+    snippetGain.connect(ctx.destination);
+    snippetSource.start(0, start, duration);
+    const startedAt = ctx.currentTime;
+    const tick = () => {
+      const elapsed = ctx.currentTime - startedAt;
+      const currentPos = Math.min(end, start + elapsed);
+      updatePeakTimeUI(currentPos, totalDuration);
+      if (elapsed < duration && snippetSource) {
+        snippetAnimation = requestAnimationFrame(tick);
+      }
+    };
+    snippetAnimation = requestAnimationFrame(tick);
+    snippetSource.onended = () => {
+      stopSnippet();
+      setPeakStatus('peakDone');
+    };
+  }
+  setPeakStatus('peakPlaying', {
+    start: formatSeconds(start),
+    end: formatSeconds(end),
+  });
+}
+
 window.onLanguageChanged = () => {
   renderPlaylist();
   updateTotalDuration();
   refreshPlayButton();
   updateLangMenuHighlight();
+  setPeakStatus(peakStatusKey, peakStatusParams);
   updateThemeLabel(document.documentElement.classList.contains('theme-dark'));
   if (currentIndex < 0) {
     nowPlayingLabel.textContent = t('nowPlaying.idle');

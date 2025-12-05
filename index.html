@@ -7,6 +7,7 @@
     <link rel="icon" type="image/png" href="favicon.png" />
     <script src="https://cdn.jsdelivr.net/npm/howler@2.2.4/dist/howler.core.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/wavesurfer.js@7.7.14/dist/wavesurfer.min.js"></script>
     <link rel="stylesheet" href="style.css">
   </head>
   <body>
@@ -102,6 +103,18 @@
           <span id="gapProgressText" class="progress-text">0s</span>
         </div>
       </section>
+
+      <section class="panel peak-panel">
+        <div class="panel-header">
+          <h2 data-i18n="levelCheckTitle">Level check</h2>
+          <div class="peak-actions">
+            <button id="analyzePeak" type="button" data-i18n="analyzePeak">Analyze peak</button>
+            <button id="playPeakSnippet" type="button" data-i18n="playPeakSnippet" disabled>Play peak excerpt</button>
+          </div>
+        </div>
+        <p id="peakStatus" class="peak-status" data-i18n="peakIdle">Select a track and analyze to find the loudest spot.</p>
+        <div id="peakWaveform" class="peak-waveform" aria-label="Waveform visualization"></div>
+      </section>
     </main>
 
     <template id="playlistItemTemplate">
@@ -121,6 +134,7 @@
 
     <script src="js/utils.js"></script>
     <script src="js/i18n.js"></script>
+    <script src="js/peak-visualizer.js"></script>
     <script src="script.js"></script>
   </body>
 </html>

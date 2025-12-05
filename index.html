@@ -113,9 +113,9 @@
         <div class="panel-header">
           <h2 data-i18n="levelCheckTitle">Level check</h2>
           <div class="peak-actions">
-            <button id="analyzePeak" type="button" data-i18n="analyzePeak">Analyze peak</button>
-            <button id="playPeakFromStart" type="button" data-i18n="playFromStart" disabled>Play from start</button>
-            <button id="togglePeakPlay" type="button" data-i18n="playPauseButton" disabled>Play / Pause</button>
+            <button id="analyzePeak" class="btn-peak-reset" type="button" data-i18n="analyzePeak">Analyze peak</button>
+            <button id="playPeakFromStart" class="btn-peak-start" type="button" data-i18n="playFromStart" disabled>Play from start</button>
+            <button id="togglePeakPlay" class="btn-peak-toggle" type="button" data-i18n="playPauseButton" disabled>Play / Pause</button>
           </div>
         </div>
         <p id="peakStatus" class="peak-status" data-i18n="peakIdle">Select a track and analyze to find the loudest spot.</p>
@@ -142,6 +142,7 @@
     <script src="js/utils.js"></script>
     <script src="js/i18n.js"></script>
     <script src="js/peak-visualizer.js"></script>
+    <script src="js/level-utils.js"></script>
     <script src="script.js"></script>
   </body>
 </html>

@@ -242,6 +242,33 @@
   font-size: 0.95rem;
 }
 
+.btn-peak-start {
+  background: #3a6fff;
+  color: #fff;
+}
+
+.btn-peak-start:hover {
+  opacity: 0.92;
+}
+
+.btn-peak-toggle {
+  background: #2c9c4a;
+  color: #fff;
+}
+
+.btn-peak-toggle:hover {
+  opacity: 0.92;
+}
+
+.btn-peak-reset {
+  background: #a93b3b;
+  color: #fff;
+}
+
+.btn-peak-reset:hover {
+  opacity: 0.92;
+}
+
 .peak-waveform {
   width: 100%;
   height: 200px;

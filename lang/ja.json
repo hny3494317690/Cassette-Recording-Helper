@@ -10,6 +10,7 @@
   "durationPendingTooltip": "曲の長さ取得待ち",
   "durationApproxTooltip": "だいたい {duration}（{seconds}秒）",
   "playlistTitle": "プレイリスト",
+  "runLevelCheck": "レベルチェックを実行",
   "clearList": "リストを空にする",
   "playlistHint": "ドラッグで並び替え。クリックでプレイヤーに読み込みます。",
   "dragHandle": "ドラッグで並び替え",
@@ -53,8 +54,11 @@
   "dragHint": "ドラッグで並び替え",
   "delete": "削除",
   "deleteThis": "この曲を削除",
+  "levelSummary": "平均 {avg} dB / ピーク {peak} dB",
+  "adjustLevel": "レベル調整 (dB)",
   "gapCountdown": "{seconds}秒",
   "play": "再生",
   "pause": "一時停止",
-  "playerLibMissing": "プレイヤーが読み込めません"
+  "playerLibMissing": "プレイヤーが読み込めません",
+  "levelNote": "任意機能：自動レベル調整がない古いカセットデッキや簡易レコーダー向けです。"
 }

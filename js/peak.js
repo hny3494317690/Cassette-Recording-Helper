@@ -161,6 +161,7 @@
       const start = Math.max(0, peakTime - windowSec / 2);
       const end = Math.min(audioBuffer.duration, start + windowSec);
       state.peakInfo = { trackId: track.id, time: peakTime, start, end, buffer: audioBuffer, duration: audioBuffer.duration };
+      state.peakUserSeeked = false;
       updatePeakTimeUI(start, audioBuffer.duration);
       updatePeakMarker(peakTime, audioBuffer.duration);
       if (window.WaveSurfer && peakWaveform) {
@@ -230,12 +231,14 @@
           const surferDuration = state.peakSurfer.getDuration ? state.peakSurfer.getDuration() : audioBuffer.duration || track.duration || 0;
           const pos = state.peakSurfer.getCurrentTime ? state.peakSurfer.getCurrentTime() : 0;
           state.peakPausedAt = pos;
+          state.peakUserSeeked = true;
           updatePeakTimeUI(pos, surferDuration);
         });
         state.peakSurfer.on('seeking', () => {
           const surferDuration = state.peakSurfer.getDuration ? state.peakSurfer.getDuration() : audioBuffer.duration || track.duration || 0;
           const pos = state.peakSurfer.getCurrentTime ? state.peakSurfer.getCurrentTime() : 0;
           state.peakPausedAt = pos;
+          state.peakUserSeeked = true;
           updatePeakTimeUI(pos, surferDuration);
         });
         state.peakSurfer.load(track.url);
@@ -266,9 +269,11 @@
     const totalDuration = state.peakInfo.buffer.duration;
     const baseStart = reset ? state.peakInfo.start : (state.peakSurfer?.getCurrentTime?.() ?? state.peakPausedAt ?? state.peakInfo.start);
     const start = Math.max(0, Math.min(totalDuration - 0.05, baseStart));
-    const duration = Math.min(15, Math.max(0.05, totalDuration - start));
+    const useFull = state.peakUserSeeked && !reset;
+    const duration = useFull ? Math.max(0.05, totalDuration - start) : Math.min(15, Math.max(0.05, totalDuration - start));
     const end = Math.min(totalDuration, start + duration);
-    state.peakTargetEnd = null;
+    state.peakTargetEnd = useFull ? null : end;
+    if (reset) state.peakUserSeeked = false;
     if (state.peakSurfer) {
       const playWithSurfer = () => {
         if (!state.peakSurfer) return;
@@ -276,8 +281,8 @@
         const currentPos = state.peakSurfer.getCurrentTime ? state.peakSurfer.getCurrentTime() : start;
         const chosenStart = reset ? start : currentPos;
         const safeStart = Math.max(0, Math.min(surferDuration - 0.01, chosenStart));
-        const safeEnd = Math.min(surferDuration, end);
-        state.peakTargetEnd = safeEnd;
+        const safeEnd = useFull ? surferDuration : Math.min(surferDuration, end);
+        state.peakTargetEnd = useFull ? null : safeEnd;
         state.peakPausedAt = 0;
         state.peakSurfer.stop();
         state.peakSurfer.setTime(safeStart);

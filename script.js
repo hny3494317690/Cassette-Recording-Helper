@@ -39,7 +39,8 @@ const peakMarker = (() => {
   return marker;
 })();
 const { formatAdjustDb, parseAdjustDb, applyTrackGain, computeTrackLevels } = window.LevelUtils || {};
-const formatAdjust = (v) => (formatAdjustDb ? formatAdjustDb(v) : Number.isFinite(v) ? v.toFixed(1) : '0.0');
+// Use plain numeric formatting so native number inputs accept/show positives.
+const formatAdjust = (v) => (Number.isFinite(v) ? v.toFixed(1) : '0.0');
 const parseAdjust = (v) => (parseAdjustDb ? parseAdjustDb(v) : Number.parseFloat(String(v)) || 0);
 const applyTrackGainLocal = (track) => applyTrackGain?.(track, currentHowl, currentIndex, playlist);
 const computeTrackLevelsLocal = (track) => computeTrackLevels?.(track, ensureAudioContext);
@@ -1047,8 +1048,8 @@ async function handlePeakAnalysis() {
           height,
           responsive: true,
           normalize: false,
-          interact: false,
-          dragToSeek: false,
+          interact: true,
+          dragToSeek: true,
           cursorColor: '#57BAB6',
           cursorWidth: 3,
           minPxPerSec: 0,
@@ -1078,7 +1079,6 @@ async function handlePeakAnalysis() {
             peakTargetEnd = null;
             peakSurfer.pause();
             if (typeof endPoint === 'number') peakSurfer.setTime(endPoint);
-            setPeakStatus('peakDone');
           }
         };
         peakSurfer.on('timeupdate', peakSurferTimeHandler);
@@ -1094,6 +1094,18 @@ async function handlePeakAnalysis() {
       });
       peakSurfer.once('error', () => {
         peakSurferReady = false;
+      });
+      peakSurfer.on('interaction', () => {
+        const surferDuration = peakSurfer.getDuration ? peakSurfer.getDuration() : audioBuffer.duration || track.duration || 0;
+        const pos = peakSurfer.getCurrentTime ? peakSurfer.getCurrentTime() : 0;
+        peakPausedAt = pos;
+        updatePeakTimeUI(pos, surferDuration);
+      });
+      peakSurfer.on('seeking', () => {
+        const surferDuration = peakSurfer.getDuration ? peakSurfer.getDuration() : audioBuffer.duration || track.duration || 0;
+        const pos = peakSurfer.getCurrentTime ? peakSurfer.getCurrentTime() : 0;
+        peakPausedAt = pos;
+        updatePeakTimeUI(pos, surferDuration);
       });
       peakSurfer.load(track.url);
     }
@@ -1170,7 +1182,7 @@ function playPeakExcerpt(reset = false) {
       updatePeakTimeUI(safeStart, surferDuration);
       peakSurfer.play(safeStart, safeEnd);
       peakSurfer.once('finish', () => {
-        setPeakStatus('peakDone');
+        // Keep analysis result text; no status change.
       });
     };
     if (peakSurferReady) {
@@ -1209,14 +1221,10 @@ function playPeakExcerpt(reset = false) {
     snippetAnimation = requestAnimationFrame(tick);
     snippetSource.onended = () => {
       stopSnippet();
-      setPeakStatus('peakDone');
+      // Keep analysis result text; no status change.
     };
   }
-  setPeakStatus('peakPlaying', {
-    start: formatSeconds(start),
-    end: formatSeconds(end),
-  });
-}
+  }
 
 function togglePeakPlayback() {
   if (!peakInfo || !playlist[currentIndex] || playlist[currentIndex].id !== peakInfo.trackId) {
@@ -1235,7 +1243,6 @@ function togglePeakPlayback() {
   }
   if (snippetSource) {
     stopSnippet();
-    setPeakStatus('peakDone');
     return;
   }
   playPeakExcerpt(false);

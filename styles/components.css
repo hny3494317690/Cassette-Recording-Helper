@@ -84,6 +84,7 @@
   flex: 0 0 auto;
   min-width: 90px;
   text-align: right;
+  margin-left: auto;
 }
 
 .track-progress {
@@ -310,6 +311,7 @@
   gap: 8px;
   font-size: 0.85rem;
   color: var(--text-muted);
+  margin-left: auto;
 }
 
 .track-levels .level-values {
@@ -317,7 +319,7 @@
 }
 
 .track-levels input {
-  width: 64px;
+  width: 74px;
   padding: 6px 8px;
   border-radius: 8px;
   border: 1px solid var(--border);

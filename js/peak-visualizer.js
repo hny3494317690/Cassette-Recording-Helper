@@ -17,11 +17,7 @@
 
     const lineOffset = 0.7;
     const step = 1 / h;
-    const waveColor = build([
-      [0, 'rgb(255, 244, 178)'], // light yellow
-      [lineOffset, 'rgb(220, 190, 90)'],
-      [1, 'rgb(120, 95, 35)'],
-    ]);
+    const waveColor = 'rgb(255, 220, 60)'; // solid yellow
 
     const progressColor = 'rgba(80, 200, 120, 0.9)'; // green for played portion
 
@@ -38,9 +34,9 @@
       height,
       responsive: true,
       normalize: false,
-      interact: false,
-      dragToSeek: false,
-      cursorColor: '#57BAB6',
+      interact: true,
+      dragToSeek: true,
+      cursorColor: '#1d0ec2ff',
       cursorWidth: 3,
       minPxPerSec: 0,
       fillParent: true,

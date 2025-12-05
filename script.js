@@ -38,6 +38,12 @@ const peakMarker = (() => {
   peakWaveform.appendChild(marker);
   return marker;
 })();
+const { formatAdjustDb, parseAdjustDb, applyTrackGain, computeTrackLevels } = window.LevelUtils || {};
+// Use plain numeric formatting so native number inputs accept/show positives.
+const formatAdjust = (v) => (Number.isFinite(v) ? v.toFixed(1) : '0.0');
+const parseAdjust = (v) => (parseAdjustDb ? parseAdjustDb(v) : Number.parseFloat(String(v)) || 0);
+const applyTrackGainLocal = (track) => applyTrackGain?.(track, currentHowl, currentIndex, playlist);
+const computeTrackLevelsLocal = (track) => computeTrackLevels?.(track, ensureAudioContext);
 
 function updateThemeLabel(useDark) {
   if (!themeLabel) return;
@@ -63,24 +69,6 @@ function formatSeconds(value) {
   return `${minutes}:${seconds}`;
 }
 
-function formatAdjustDb(value) {
-  if (!Number.isFinite(value)) return '0.0';
-  if (value > 0) return `+${value.toFixed(1)}`;
-  if (value === 0) return '0.0';
-  return value.toFixed(1);
-}
-
-function parseAdjustDb(value) {
-  const num = Number.parseFloat(String(value).replace('+', ''));
-  return Number.isFinite(num) ? Number(num.toFixed(1)) : 0;
-}
-
-function applyTrackGain(track) {
-  if (!track || !currentHowl || playlist[currentIndex]?.id !== track.id) return;
-  const gain = Math.max(0, Math.min(2, Math.pow(10, (track.adjustDb || 0) / 20)));
-  currentHowl.volume(gain);
-}
-
 function applyDragLockState() {
   const canDrag = !lockToggle?.checked;
   toggleSortable(canDrag);
@@ -98,38 +86,6 @@ function ensureAudioContext() {
     audioCtx = new Ctx();
   }
   return audioCtx;
-}
-
-async function computeTrackLevels(track) {
-  const ctx = ensureAudioContext();
-  if (!ctx || !track?.file) return;
-  try {
-    const arrayBuffer = await track.file.arrayBuffer();
-    const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
-    let maxAbs = 0;
-    let sumSquares = 0;
-    let count = 0;
-    for (let ch = 0; ch < audioBuffer.numberOfChannels; ch += 1) {
-      const data = audioBuffer.getChannelData(ch);
-      for (let i = 0; i < data.length; i += 1) {
-        const v = data[i];
-        const abs = Math.abs(v);
-        if (abs > maxAbs) maxAbs = abs;
-        sumSquares += v * v;
-        count += 1;
-      }
-    }
-    const rms = count > 0 ? Math.sqrt(sumSquares / count) : 0;
-    const toDb = (val) => (val > 0 ? 20 * Math.log10(val) : -Infinity);
-    track.avgDb = toDb(rms);
-    track.peakDb = toDb(maxAbs);
-    track.levelComputed = true;
-  } catch (err) {
-    console.error('Level check failed', err);
-    track.avgDb = null;
-    track.peakDb = null;
-    track.levelComputed = false;
-  }
 }
 
 function setPeakStatus(key, params) {
@@ -376,7 +332,7 @@ async function runLevelCheck() {
   if (!playlist.length) return;
   if (levelCheckToggle) levelCheckToggle.disabled = true;
   for (const track of playlist) {
-    await computeTrackLevels(track);
+    await computeTrackLevelsLocal(track);
   }
   renderPlaylist();
   if (levelCheckToggle) levelCheckToggle.disabled = false;
@@ -460,7 +416,7 @@ function queueTrack(file) {
   renderPlaylist();
   probeDuration(track);
   if (autoLevelCheck) {
-    computeTrackLevels(track).then(() => renderPlaylist());
+    computeTrackLevelsLocal(track).then(() => renderPlaylist());
   }
 }
 
@@ -548,19 +504,19 @@ function renderPlaylist() {
     input.type = 'number';
     input.step = '0.1';
     input.inputMode = 'decimal';
-    input.value = formatAdjustDb(Number.isFinite(track.adjustDb) ? track.adjustDb : 0);
+    input.value = formatAdjust(Number.isFinite(track.adjustDb) ? track.adjustDb : 0);
     input.title = t('adjustLevel');
     input.setAttribute('aria-label', t('adjustLevel'));
     input.addEventListener('click', (e) => e.stopPropagation());
     const applyInput = () => {
-      track.adjustDb = parseAdjustDb(input.value);
-      input.value = formatAdjustDb(track.adjustDb);
-      applyTrackGain(track);
+      track.adjustDb = parseAdjust(input.value);
+      input.value = formatAdjust(track.adjustDb);
+      applyTrackGainLocal(track);
     };
     input.addEventListener('input', (e) => {
       e.stopPropagation();
-      track.adjustDb = parseAdjustDb(input.value);
-      applyTrackGain(track);
+      track.adjustDb = parseAdjust(input.value);
+      applyTrackGainLocal(track);
     });
     input.addEventListener('blur', applyInput);
     levels.append(values, input);
@@ -973,7 +929,7 @@ function loadHowl(track) {
     },
     onend: handleTrackEnded,
   });
-  applyTrackGain(track);
+  applyTrackGainLocal(track);
 }
 function playCurrent() {
   if (!currentHowl) return;
@@ -1092,8 +1048,8 @@ async function handlePeakAnalysis() {
           height,
           responsive: true,
           normalize: false,
-          interact: false,
-          dragToSeek: false,
+          interact: true,
+          dragToSeek: true,
           cursorColor: '#57BAB6',
           cursorWidth: 3,
           minPxPerSec: 0,
@@ -1123,7 +1079,6 @@ async function handlePeakAnalysis() {
             peakTargetEnd = null;
             peakSurfer.pause();
             if (typeof endPoint === 'number') peakSurfer.setTime(endPoint);
-            setPeakStatus('peakDone');
           }
         };
         peakSurfer.on('timeupdate', peakSurferTimeHandler);
@@ -1139,6 +1094,18 @@ async function handlePeakAnalysis() {
       });
       peakSurfer.once('error', () => {
         peakSurferReady = false;
+      });
+      peakSurfer.on('interaction', () => {
+        const surferDuration = peakSurfer.getDuration ? peakSurfer.getDuration() : audioBuffer.duration || track.duration || 0;
+        const pos = peakSurfer.getCurrentTime ? peakSurfer.getCurrentTime() : 0;
+        peakPausedAt = pos;
+        updatePeakTimeUI(pos, surferDuration);
+      });
+      peakSurfer.on('seeking', () => {
+        const surferDuration = peakSurfer.getDuration ? peakSurfer.getDuration() : audioBuffer.duration || track.duration || 0;
+        const pos = peakSurfer.getCurrentTime ? peakSurfer.getCurrentTime() : 0;
+        peakPausedAt = pos;
+        updatePeakTimeUI(pos, surferDuration);
       });
       peakSurfer.load(track.url);
     }
@@ -1215,7 +1182,7 @@ function playPeakExcerpt(reset = false) {
       updatePeakTimeUI(safeStart, surferDuration);
       peakSurfer.play(safeStart, safeEnd);
       peakSurfer.once('finish', () => {
-        setPeakStatus('peakDone');
+        // Keep analysis result text; no status change.
       });
     };
     if (peakSurferReady) {
@@ -1254,14 +1221,10 @@ function playPeakExcerpt(reset = false) {
     snippetAnimation = requestAnimationFrame(tick);
     snippetSource.onended = () => {
       stopSnippet();
-      setPeakStatus('peakDone');
+      // Keep analysis result text; no status change.
     };
   }
-  setPeakStatus('peakPlaying', {
-    start: formatSeconds(start),
-    end: formatSeconds(end),
-  });
-}
+  }
 
 function togglePeakPlayback() {
   if (!peakInfo || !playlist[currentIndex] || playlist[currentIndex].id !== peakInfo.trackId) {
@@ -1280,7 +1243,6 @@ function togglePeakPlayback() {
   }
   if (snippetSource) {
     stopSnippet();
-    setPeakStatus('peakDone');
     return;
   }
   playPeakExcerpt(false);

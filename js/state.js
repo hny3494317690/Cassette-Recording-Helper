@@ -67,6 +67,7 @@
     peakTargetEnd: null,
     autoLevelCheck: false,
     peakPausedAt: 0,
+    peakUserSeeked: false,
   };
 
   window.AppState = { refs, state };

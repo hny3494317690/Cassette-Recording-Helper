@@ -28,12 +28,18 @@ python3 -m http.server 8000
 
 ### Structure
 - `index.html` — main UI.
-- `style.css`, `styles/` — base/components styling.
-- `script.js` — playlist logic, playback, progress, UI wiring.
+- `css/style.css`, `css/` — base/components styling.
+- `js/state.js` — shared DOM refs and app state.
+- `js/theme-lang.js` — theme toggle + language menu helpers.
+- `js/player.js` — core playback controls, lead/gap handling.
+- `js/playlist.js` — list rendering, drag/reorder, level UI.
+- `js/peak.js` — peak analysis + waveform playback.
+- `js/peak-visualizer.js` — WaveSurfer gradient/builder.
+- `js/level-utils.js` — level compute/adjust helpers.
 - `js/i18n.js` — language loader for `lang/*.json`.
+- `js/utils.js` — generic helpers (duration, ids, input normalize).
 - `lang/` — translations (zh-CN, en, ja).
-- `lang-icon.svg` — language icon; `favicon.png` — favicon.
-- `js/utils.js` — helpers for durations, ids, formatting.
+- `images/lang-icon.svg`, `images/favicon.png` — assets.
 
 ### Notes
 - Playback depends on browser-supported formats; some uncommon formats may not work.
@@ -64,12 +70,18 @@ python3 -m http.server 8000
 
 ### 结构
 - `index.html`：主界面。
-- `style.css`、`styles/`：样式。
-- `script.js`：播放列表、播放与进度逻辑。
+- `css/style.css`、`css/`：样式。
+- `js/state.js`：共享 DOM 引用和状态。
+- `js/theme-lang.js`：主题切换与语言菜单。
+- `js/player.js`：播放控制、前导/间隔逻辑。
+- `js/playlist.js`：列表渲染、拖拽、水平展示与输入。
+- `js/peak.js`：峰值分析与波形播放。
+- `js/peak-visualizer.js`：WaveSurfer 配置/渐变构造。
+- `js/level-utils.js`：电平计算与调整工具。
 - `js/i18n.js`：加载 `lang/*.json` 语言。
+- `js/utils.js`：通用工具（时长、ID、输入规范）。
 - `lang/`：翻译文件（中/英/日）。
-- `lang-icon.svg`：语言图标；`favicon.png`：站点图标。
-- `js/utils.js`：时长、ID、格式化工具。
+- `images/lang-icon.svg`、`images/favicon.png`：图标。
 
 ### 说明
 - 播放依赖浏览器支持的格式，部分特殊格式可能无法播放。
@@ -97,12 +109,18 @@ python3 -m http.server 8000
 
 ### 構成
 - `index.html`：メイン UI。
-- `style.css`、`styles/`：スタイル一式。
-- `script.js`：プレイリスト、再生、進捗ロジック。
-- `js/i18n.js`：`lang/*.json` の読み込み。
+- `css/style.css`、`css/`：スタイル一式。
+- `js/state.js`：共有 DOM 参照と状態。
+- `js/theme-lang.js`：テーマ切替と言語メニュー。
+- `js/player.js`：再生コントロール、頭出し/曲間処理。
+- `js/playlist.js`：リスト描画、ドラッグ並び替え、レベル UI。
+- `js/peak.js`：ピーク分析と波形再生。
+- `js/peak-visualizer.js`：WaveSurfer 用グラデ/ビルダー。
+- `js/level-utils.js`：レベル計算と調整ツール。
+- `js/i18n.js`：`lang/*.json` 読み込み。
+- `js/utils.js`：汎用ヘルパー（時間、ID、入力正規化）。
 - `lang/`：翻訳ファイル（中/英/日）。
-- `lang-icon.svg`：言語アイコン。`favicon.png`：ファビコン。
-- `js/utils.js`：時間計算、ID、フォーマット用ツール。
+- `images/lang-icon.svg`、`images/favicon.png`：アイコン。
 
 ### 注意
 - 再生はブラウザ対応の形式に依存し、一部の特殊形式は再生できない場合があります。

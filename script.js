@@ -26,6 +26,16 @@ const playPeakButton = document.getElementById('playPeakSnippet');
 const peakStatus = document.getElementById('peakStatus');
 const peakWaveform = document.getElementById('peakWaveform');
 const peakCtx = null;
+const peakCurrentTimeEl = null;
+const peakTotalTimeEl = null;
+const peakProgressFill = null;
+const peakMarker = (() => {
+  if (!peakWaveform) return null;
+  const marker = document.createElement('div');
+  marker.className = 'peak-marker';
+  peakWaveform.appendChild(marker);
+  return marker;
+})();
 
 function updateThemeLabel(useDark) {
   if (!themeLabel) return;
@@ -76,6 +86,25 @@ function setPeakStatus(key, params) {
   }
 }
 
+function updatePeakTimeUI(current = 0, total = 0) {
+  if (peakCurrentTimeEl) peakCurrentTimeEl.textContent = formatSeconds(current).replace(/\.0$/, '');
+  if (peakTotalTimeEl) peakTotalTimeEl.textContent = formatSeconds(total || 0).replace(/\.0$/, '');
+  if (peakProgressFill) {
+    const pct = total > 0 ? Math.min(1, Math.max(0, current / total)) * 100 : 0;
+    peakProgressFill.style.width = `${pct}%`;
+  }
+}
+
+function updatePeakMarker(time = null, total = 0) {
+  if (!peakMarker) return;
+  if (!Number.isFinite(time) || !total) {
+    peakMarker.style.left = '-9999px';
+    return;
+  }
+  const pct = Math.min(1, Math.max(0, time / total)) * 100;
+  peakMarker.style.left = `${pct}%`;
+}
+
 function clearSpectrum() {
   if (spectrumTimer) {
     cancelAnimationFrame(spectrumTimer);
@@ -85,11 +114,18 @@ function clearSpectrum() {
     cancelAnimationFrame(snippetAnimation);
     snippetAnimation = null;
   }
+  if (peakSurferTimeHandler && peakSurfer) {
+    peakSurfer.un('timeupdate', peakSurferTimeHandler);
+  }
+  peakSurferTimeHandler = null;
+  peakTargetEnd = null;
   if (peakSurfer) {
     peakSurfer.destroy();
     peakSurfer = null;
     peakSurferReady = false;
   }
+  updatePeakTimeUI(0, 0);
+  updatePeakMarker(null, 0);
 }
 
 function stopSnippet() {
@@ -160,6 +196,8 @@ let peakCanvasWidth = 0;
 let peakCanvasHeight = 0;
 let peakSurfer = null;
 let peakSurferReady = false;
+let peakSurferTimeHandler = null;
+let peakTargetEnd = null;
 
 fileInput.addEventListener('change', (event) => {
   handleIncomingFiles(event.target.files);
@@ -903,6 +941,8 @@ async function handlePeakAnalysis() {
     const start = Math.max(0, peakTime - windowSec / 2);
     const end = Math.min(audioBuffer.duration, start + windowSec);
     peakInfo = { trackId: track.id, time: peakTime, start, end, buffer: audioBuffer, duration: audioBuffer.duration };
+    updatePeakTimeUI(start, audioBuffer.duration);
+    updatePeakMarker(peakTime, audioBuffer.duration);
     if (window.WaveSurfer && peakWaveform) {
       if (peakSurfer) {
         peakSurfer.destroy();
@@ -910,33 +950,63 @@ async function handlePeakAnalysis() {
         peakSurferReady = false;
       }
       const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent')?.trim() || '#6ba2ff';
+      const height = peakCanvasHeight || 200;
       peakSurferReady = false;
-      peakSurfer = WaveSurfer.create({
-        container: peakWaveform,
-        waveColor: accent,
-        progressColor: '#3fbf7f',
-        height: peakCanvasHeight || 200,
-        barWidth: 2,
-        barHeight: 0.3,
-        barMinHeight: 1,
-        barGap: 3,
-        barAlign: 'center',
-        barRadius: 2,
-        responsive: true,
-        normalize: false,
-        interact: false,
-        dragToSeek: false,
-        cursorWidth: 0,
-        autoCenter: false,
-        splitChannels: true,
-        splitChannelsOptions: {
-          overlay: false,
-          relativeNormalization: false,
-          channelGap: 12,
-        },
-      });
+      const gradients = window.buildPeakGradients ? window.buildPeakGradients(height) : null;
+      if (window.createPeakSurfer) {
+        peakSurfer = window.createPeakSurfer({ container: peakWaveform, height, accent });
+      } else {
+        peakSurfer = WaveSurfer.create({
+          container: peakWaveform,
+          waveColor: gradients?.waveColor || accent,
+          progressColor: gradients?.progressColor || 'rgba(80, 200, 120, 0.9)',
+          height,
+          responsive: true,
+          normalize: false,
+          interact: false,
+          dragToSeek: false,
+          cursorColor: '#57BAB6',
+          cursorWidth: 3,
+          minPxPerSec: 0,
+          fillParent: true,
+          hideScrollbar: true,
+          autoCenter: false,
+          splitChannels: true,
+          splitChannelsOptions: {
+            overlay: false,
+            relativeNormalization: false,
+            channelGap: 0,
+          },
+        });
+      }
       peakSurfer.once('ready', () => {
         peakSurferReady = true;
+        const surferDuration = peakSurfer.getDuration ? peakSurfer.getDuration() : track.duration || audioBuffer.duration || 1;
+        const startPos = peakInfo?.start || 0;
+        if (peakSurferTimeHandler && peakSurfer) {
+          peakSurfer.un('timeupdate', peakSurferTimeHandler);
+        }
+        peakSurferTimeHandler = (time) => {
+          updatePeakTimeUI(time, surferDuration);
+          updatePeakMarker(peakInfo?.time, surferDuration);
+          if (peakTargetEnd != null && time >= peakTargetEnd - 0.02) {
+            const endPoint = peakTargetEnd;
+            peakTargetEnd = null;
+            peakSurfer.pause();
+            if (typeof endPoint === 'number') peakSurfer.setTime(endPoint);
+            setPeakStatus('peakDone');
+          }
+        };
+        peakSurfer.on('timeupdate', peakSurferTimeHandler);
+        updatePeakTimeUI(startPos, surferDuration);
+        if (surferDuration > 0) {
+          const ratio = Math.min(1, Math.max(0, startPos / surferDuration));
+          if (typeof peakSurfer.seekTo === 'function') {
+            peakSurfer.seekTo(ratio);
+          } else if (typeof peakSurfer.setTime === 'function') {
+            peakSurfer.setTime(startPos);
+          }
+        }
       });
       peakSurfer.once('error', () => {
         peakSurferReady = false;
@@ -999,14 +1069,17 @@ function playPeakExcerpt() {
   const start = Math.max(0, Math.min(totalDuration - 0.05, peakInfo.start));
   const duration = Math.min(15, Math.max(0.05, totalDuration - start));
   const end = Math.min(totalDuration, start + duration);
+  peakTargetEnd = null;
   if (peakSurfer) {
     const playWithSurfer = () => {
       if (!peakSurfer) return;
       const surferDuration = peakSurfer.getDuration ? peakSurfer.getDuration() : totalDuration;
       const safeStart = Math.max(0, Math.min(surferDuration - 0.01, start));
       const safeEnd = Math.min(surferDuration, end);
+      peakTargetEnd = safeEnd;
       peakSurfer.stop();
       peakSurfer.setTime(safeStart);
+      updatePeakTimeUI(safeStart, surferDuration);
       peakSurfer.play(safeStart, safeEnd);
       peakSurfer.once('finish', () => {
         setPeakStatus('peakDone');
@@ -1035,6 +1108,16 @@ function playPeakExcerpt() {
     analyser.connect(snippetGain);
     snippetGain.connect(ctx.destination);
     snippetSource.start(0, start, duration);
+    const startedAt = ctx.currentTime;
+    const tick = () => {
+      const elapsed = ctx.currentTime - startedAt;
+      const currentPos = Math.min(end, start + elapsed);
+      updatePeakTimeUI(currentPos, totalDuration);
+      if (elapsed < duration && snippetSource) {
+        snippetAnimation = requestAnimationFrame(tick);
+      }
+    };
+    snippetAnimation = requestAnimationFrame(tick);
     snippetSource.onended = () => {
       stopSnippet();
       setPeakStatus('peakDone');

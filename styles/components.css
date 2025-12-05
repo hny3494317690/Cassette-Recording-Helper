@@ -249,7 +249,21 @@
   border-radius: 10px;
   background: #0c101b;
   display: block;
+  position: relative;
   overflow: hidden;
+}
+
+.peak-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(255, 74, 74, 0.95);
+  box-shadow: 0 0 6px rgba(255, 74, 74, 0.6);
+  left: 0;
+  transform: translateX(-1px);
+  pointer-events: none;
+  z-index: 4;
 }
 
 :root.theme-dark .peak-waveform {
